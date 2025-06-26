@@ -1,7 +1,7 @@
 """SafeStream database integration and SQLAlchemy models.
 
 TODO(stage-5): Initialize SQLAlchemy engine and session management
-TODO(stage-5): Define Message and Flag models
+TODO(stage-5): Define Message and Flag models for persistence
 TODO(stage-5): Add database logging for messages and moderation decisions
 """
 
@@ -15,7 +15,10 @@ TODO(stage-5): Add database logging for messages and moderation decisions
 
 
 # TODO(stage-5): class Message(Base):
-#     """Database model for chat messages."""
+#     """Database model for chat messages.
+#
+#     Stores all messages with moderation results for analytics.
+#     """
 #     __tablename__ = "messages"
 #
 #     id = Column(Integer, primary_key=True)
@@ -27,7 +30,10 @@ TODO(stage-5): Add database logging for messages and moderation decisions
 
 
 # TODO(stage-5): class Flag(Base):
-#     """Database model for flagged messages."""
+#     """Database model for flagged messages.
+#
+#     Tracks moderation actions for audit trail.
+#     """
 #     __tablename__ = "flags"
 #
 #     id = Column(Integer, primary_key=True)
