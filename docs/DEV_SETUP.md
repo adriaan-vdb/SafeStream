@@ -1,0 +1,198 @@
+# SafeStream Development Setup Guide
+
+This guide provides detailed instructions for setting up the SafeStream development environment using either local virtual environments or Docker.
+
+## Prerequisites
+
+- Python 3.12 or higher
+- Git
+- Docker and Docker Compose (for containerized development)
+
+## Option 1: Local Development with Virtual Environment
+
+### 1. Clone and Setup
+
+```bash
+git clone <repository-url>
+cd SafeStream
+```
+
+### 2. Create Virtual Environment
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\Activate.ps1
+```
+
+### 3. Install Dependencies
+
+```bash
+# Upgrade pip
+python -m pip install --upgrade pip
+
+# Install project in editable mode with development dependencies
+pip install -e ".[dev]"
+```
+
+### 4. Setup Pre-commit Hooks
+
+```bash
+# Install pre-commit hooks
+pre-commit install
+
+# Run pre-commit on all files (optional)
+pre-commit run --all-files
+```
+
+### 5. Verify Installation
+
+```bash
+# Run tests
+pytest -q
+
+# Check code quality
+ruff check .
+black --check .
+
+# Start development server
+uvicorn app.main:app --reload
+```
+
+### 6. Test Endpoints
+
+In another terminal:
+```bash
+curl http://localhost:8000/          # Should return {"status":"ok"}
+curl http://localhost:8000/healthz   # Should return {"status":"healthy"}
+```
+
+## Option 2: Docker Development
+
+### 1. Build and Start Services
+
+```bash
+# Build and start the API service
+docker compose up --build
+
+# Or run in detached mode
+docker compose up --build -d
+```
+
+### 2. Verify Container is Running
+
+```bash
+# Check service status
+docker compose ps
+
+# Check logs
+docker compose logs api
+
+# Test endpoints
+curl http://localhost:8000/          # Should return {"status":"ok"}
+curl http://localhost:8000/healthz   # Should return {"status":"healthy"}
+```
+
+### 3. Development Workflow
+
+```bash
+# Stop services
+docker compose down
+
+# Rebuild after code changes
+docker compose up --build
+
+# View logs in real-time
+docker compose logs -f api
+```
+
+## Development Tools
+
+### Pre-commit Hooks
+
+The project uses pre-commit hooks to ensure code quality:
+
+- **Black**: Automatic code formatting
+- **Ruff**: Linting and import sorting
+
+Hooks run automatically on `git commit`. To run manually:
+```bash
+pre-commit run --all-files
+```
+
+### Code Quality Tools
+
+```bash
+# Format code
+black .
+
+# Lint code
+ruff check .
+
+# Fix linting issues
+ruff check . --fix
+
+# Run tests
+pytest -q
+
+# Run tests with coverage (when implemented)
+pytest --cov=app tests/
+```
+
+## Project Structure Reference
+
+See the main [README.md](../README.md) for:
+- [Feature Summary](../README.md#1-feature-summary)
+- [Architecture Overview](../README.md#3-architecture)
+- [API Documentation](../README.md#6-api--protocol)
+- [Configuration Options](../README.md#5-configuration)
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Port Already in Use**
+   ```bash
+   # Find process using port 8000
+   lsof -i :8000
+   # Kill process
+   kill -9 <PID>
+   ```
+
+2. **Docker Build Fails**
+   ```bash
+   # Clean Docker cache
+   docker system prune -a
+   # Rebuild
+   docker compose up --build
+   ```
+
+3. **Pre-commit Hooks Fail**
+   ```bash
+   # Update pre-commit hooks
+   pre-commit autoupdate
+   # Run manually
+   pre-commit run --all-files
+   ```
+
+### Environment Variables
+
+Key environment variables (see [Configuration](../README.md#5-configuration)):
+- `APP_PORT`: FastAPI server port (default: 8000)
+- `TOXIC_THRESHOLD`: Moderation threshold (default: 0.6)
+- `GIFT_RATE_SEC`: Gift simulation rate (default: 15)
+
+## Next Steps
+
+After setup, continue with:
+1. [Stage 2: WebSocket Implementation](../README.md#13-high-level-build-guide)
+2. [Stage 3: Moderation Pipeline](../README.md#13-high-level-build-guide)
+3. [Stage 4: Gift Simulation](../README.md#13-high-level-build-guide)
+
+## Contributing
+
+1. Create a feature branch
+2. Make changes with pre-commit hooks enabled
+3. Run tests: `pytest -q`
+4. Submit pull request
+
+For more details, see the main [README.md](../README.md). 

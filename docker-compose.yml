@@ -1,0 +1,47 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+    environment:
+      - APP_PORT=8000
+      - TOXIC_THRESHOLD=0.6
+      - GIFT_RATE_SEC=15
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # TODO(stage-7): Add Streamlit dashboard service
+  # dashboard:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.dashboard
+  #   ports:
+  #     - "8501:8501"
+  #   volumes:
+  #     - ./logs:/app/logs
+  #   environment:
+  #     - DASH_PORT=8501
+  #   depends_on:
+  #     - api
+
+  # TODO(stage-5): Add database service
+  # db:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: safestream
+  #     POSTGRES_USER: safestream
+  #     POSTGRES_PASSWORD: safestream
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# TODO(stage-5): Add database volume
+# volumes:
+#   postgres_data: 
