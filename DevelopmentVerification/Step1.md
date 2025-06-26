@@ -80,8 +80,8 @@ All placeholder modules include:
 ## Development Tools Configuration
 
 ### Code Quality Tools
-- **Black**: 88-character line length, Python 3.12 target
-- **Ruff**: Comprehensive linting rules (E, F, I, N, W, B, C4, UP)
+- **Black**: 88-character line length, Python 3.12+ target (the only formatter)
+- **Ruff**: Comprehensive linting rules (E, F, I, N, W, B, C4, UP) (not used for formatting)
 - **Pytest**: Configured for quiet output with short tracebacks
 
 ### Git Configuration
@@ -109,8 +109,8 @@ pytest -q  # Expected: 2 passed
 
 ### Code Quality
 ```bash
-ruff check .     # Expected: No errors
-black --check .  # Expected: "All done!"
+ruff check .     # Expected: No errors (linting only)
+black --check .  # Expected: "All done!" (formatting)
 ```
 
 ### Application Testing

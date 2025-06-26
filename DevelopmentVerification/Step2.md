@@ -8,10 +8,11 @@ This document summarizes all changes and verifications performed in Step 2 of th
 ## 1. Developer Tooling
 
 - **pre-commit**
-  - Added `.pre-commit-config.yaml` with hooks for `black` (auto-formatting) and `ruff` (linting and auto-fix).
+  - Added `.pre-commit-config.yaml` with hooks for `black` (auto-formatting) and `ruff` (linting and auto-fix; not formatting).
+  - Only Black is used for formatting; Ruff is used for linting only.
   - Added `pre-commit` to `[project.optional-dependencies].dev` in `pyproject.toml`.
   - Installed and activated pre-commit hooks (`pre-commit install`).
-  - Updated `[tool.black]` and `[tool.ruff]` sections in `pyproject.toml` for consistent formatting and linting across the project.
+  - Updated `[tool.black]` and `[tool.ruff]` sections in `pyproject.toml` for Black formatting and Ruff linting across the project.
 
 ---
 

@@ -230,3 +230,10 @@ Iteratively add JWT auth, rate limiting, i18n, and a Postgres service. Update do
 
 MIT — see `LICENSE`.
 
+## Development Tools and Code Quality
+
+- **Black**: The only code formatter used for Python files (enforced via pre-commit and CI)
+- **Ruff**: Used for linting and import sorting only (not for formatting)
+
+Pre-commit hooks and CI will run Black for formatting and Ruff for linting. Do not use Ruff for formatting (ruff-format is disabled).
+

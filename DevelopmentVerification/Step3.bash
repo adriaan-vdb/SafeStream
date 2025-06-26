@@ -40,12 +40,12 @@ echo "▶ Step 1: Running code quality checks..."
 
 # Check code formatting with Black
 # This ensures all Python files follow consistent formatting (88 char line length)
-echo "  📝 Checking code formatting with Black..."
+echo "  📝 Checking code formatting with Black (the only formatter)..."
 black --check .
 
 # Run comprehensive linting with Ruff
-# This checks for style issues, unused imports, and code quality problems
-echo "  🔍 Running linting with Ruff..."
+# This checks for style issues, unused imports, and code quality problems (no formatting)
+echo "  🔍 Running linting with Ruff (linting only, not formatting)..."
 ruff check .
 
 # Verify no linting issues remain

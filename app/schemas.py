@@ -49,5 +49,5 @@ class GiftEventOut(BaseModel):
     amount: int = Field(..., description="Quantity of gifts sent")
 
 
-# TODO(stage-5): Add database models for persistence
-# TODO(stage-5): Add logging schemas for JSONL output
+# TODO(stage-6): Add database models for persistence
+# TODO(stage-6): Add logging schemas for JSONL output

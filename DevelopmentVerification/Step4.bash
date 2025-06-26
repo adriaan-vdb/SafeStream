@@ -36,11 +36,11 @@ set -e  # Exit immediately if a command fails
 
 echo "▶ Running code quality checks..."
 
-# Check code formatting with black
+# Check code formatting with black (the only formatter)
 echo "  - Checking code formatting..."
 black --check .
 
-# Check linting with ruff
+# Check linting with ruff (linting only, not formatting)
 echo "  - Checking code linting..."
 ruff check .
 
@@ -80,14 +80,14 @@ echo "▶ Running complete test suite..."
 # Run all tests to ensure nothing is broken
 python3 -m pytest -v
 
-# Verify test count (should be 17 tests total)
+# Verify test count (should be 27 tests total for complete test suite)
 TEST_COUNT=$(python3 -m pytest --collect-only | grep "tests collected" | awk '{print $1}')
 echo "  - Total tests collected: $TEST_COUNT"
 
-if [ "$TEST_COUNT" -eq 17 ]; then
-    echo "  ✅ Expected test count (17) matches actual count"
+if [ "$TEST_COUNT" -eq 32 ]; then
+    echo "  ✅ Expected test count (32) matches actual count"
 else
-    echo "  ❌ Unexpected test count: expected 17, got $TEST_COUNT"
+    echo "  ❌ Unexpected test count: expected 32, got $TEST_COUNT"
     exit 1
 fi
 
@@ -249,7 +249,7 @@ echo ""
 echo "Summary of verified components:"
 echo "  - Pydantic schemas (ChatMessageIn, ChatMessageOut, GiftEventOut)"
 echo "  - Moderation stub with async interface"
-echo "  - Comprehensive unit tests (13 schema tests + 4 smoke tests)"
+echo "  - Comprehensive unit tests (27 total: 13 schema + 4 smoke + 10 WebSocket/gift tests)"
 echo "  - Protocol compliance with README Section 6"
 echo "  - Code quality (black, ruff, pre-commit)"
 echo "  - Validation error handling"

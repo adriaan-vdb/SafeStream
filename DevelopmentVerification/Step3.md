@@ -50,10 +50,10 @@ This document summarizes all changes and verifications performed in Step 3 of th
 - **Classifier Updates**: Added Python 3.13 to project classifiers.
 
 ### Quality Enforcement
-- **Black Formatting**: All files pass `black --check .` with 88-character line length.
-- **Ruff Linting**: All files pass `ruff check .` with comprehensive rule set.
-- **Import Sorting**: Automatic import organization and unused import removal.
-- **Code Style**: Consistent formatting across all Python files.
+- **Black Formatting**: All files pass `black --check .` with 88-character line length (the only formatter)
+- **Ruff Linting**: All files pass `ruff check .` with comprehensive rule set (no formatting)
+- **Import Sorting**: Automatic import organization and unused import removal (via Ruff linting)
+- **Code Style**: Consistent formatting across all Python files (enforced by Black)
 
 ---
 
@@ -102,10 +102,10 @@ This document summarizes all changes and verifications performed in Step 3 of th
 ## 6. Verification Results
 
 ### All Quality Checks Pass
-- ✅ `black --check .`: All files properly formatted
-- ✅ `ruff check .`: No linting errors or warnings
+- ✅ `black --check .`: All files properly formatted (Black is the only formatter)
+- ✅ `ruff check .`: No linting errors or warnings (Ruff is not used for formatting)
 - ✅ `pytest -q`: 4 tests pass (100% success rate)
-- ✅ Pre-commit hooks: All hooks pass
+- ✅ Pre-commit hooks: All hooks pass (Black for formatting, Ruff for linting)
 - ✅ Docker build: Container builds and runs successfully
 - ✅ Docker Compose: Multi-service orchestration works
 

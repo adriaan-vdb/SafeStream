@@ -66,6 +66,36 @@ curl http://localhost:8000/          # Should return {"status":"ok"}
 curl http://localhost:8000/healthz   # Should return {"status":"healthy"}
 ```
 
+### 7. Test WebSocket Chat
+
+Connect to the WebSocket chat:
+```bash
+# Using websocat (install: brew install websocat)
+websocat ws://localhost:8000/ws/yourname
+
+# Or using wscat (install: npm install -g wscat)
+wscat -c ws://localhost:8000/ws/yourname
+```
+
+Send a chat message:
+```json
+{"type":"chat","message":"Hello, everyone!"}
+```
+
+### 8. Test Gift API
+
+Send a gift via HTTP API:
+```bash
+curl -X POST http://localhost:8000/api/gift \
+  -d '{"from":"admin","gift_id":1,"amount":5}' \
+  -H "Content-Type: application/json"
+```
+
+Expected response:
+```json
+{"status":"queued"}
+```
+
 ## Option 2: Docker Development
 
 ### 1. Build and Start Services
@@ -92,7 +122,19 @@ curl http://localhost:8000/          # Should return {"status":"ok"}
 curl http://localhost:8000/healthz   # Should return {"status":"healthy"}
 ```
 
-### 3. Development Workflow
+### 3. Test WebSocket and Gift API in Docker
+
+```bash
+# Connect to WebSocket
+websocat ws://localhost:8000/ws/yourname
+
+# Send gift
+curl -X POST http://localhost:8000/api/gift \
+  -d '{"from":"admin","gift_id":1,"amount":5}' \
+  -H "Content-Type: application/json"
+```
+
+### 4. Development Workflow
 
 ```bash
 # Stop services
@@ -111,8 +153,8 @@ docker compose logs -f api
 
 The project uses pre-commit hooks to ensure code quality:
 
-- **Black**: Automatic code formatting
-- **Ruff**: Linting and import sorting
+- **Black**: Automatic code formatting (the only formatter)
+- **Ruff**: Linting and import sorting (no formatting)
 
 Hooks run automatically on `git commit`. To run manually:
 ```bash
@@ -122,7 +164,7 @@ pre-commit run --all-files
 ### Code Quality Tools
 
 ```bash
-# Format code
+# Format code (Black is the only formatter)
 black .
 
 # Lint code
@@ -136,6 +178,56 @@ pytest -q
 
 # Run tests with coverage (when implemented)
 pytest --cov=app tests/
+```
+
+## API Examples
+
+### WebSocket Chat Protocol
+
+Connect to chat:
+```bash
+websocat ws://localhost:8000/ws/yourname
+```
+
+Send message:
+```json
+{"type":"chat","message":"Hello, world!"}
+```
+
+Receive message:
+```json
+{
+  "type":"chat",
+  "user":"yourname",
+  "message":"Hello, world!",
+  "toxic":false,
+  "score":0.0,
+  "ts":"2025-06-26T12:34:56Z"
+}
+```
+
+### Gift API Protocol
+
+Send gift:
+```bash
+curl -X POST http://localhost:8000/api/gift \
+  -d '{"from":"admin","gift_id":999,"amount":1}' \
+  -H "Content-Type: application/json"
+```
+
+Response:
+```json
+{"status":"queued"}
+```
+
+WebSocket clients receive:
+```json
+{
+  "type":"gift",
+  "from":"admin",
+  "gift_id":999,
+  "amount":1
+}
 ```
 
 ## Project Structure Reference
@@ -172,6 +264,17 @@ See the main [README.md](../README.md) for:
    pre-commit autoupdate
    # Run manually
    pre-commit run --all-files
+   ```
+
+4. **WebSocket Connection Issues**
+   ```bash
+   # Check if server is running
+   curl http://localhost:8000/healthz
+   
+   # Check WebSocket endpoint
+   curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
+     -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: test" \
+     http://localhost:8000/ws/test
    ```
 
 ### Environment Variables

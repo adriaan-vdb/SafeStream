@@ -38,6 +38,7 @@ dev = [
     "httpx~=0.27",  # required by fastapi.testclient
     "pytest-asyncio",
     "pre-commit",  # git hooks for code quality
+    "websockets",  # WebSocket client for testing
 ]
 
 [tool.setuptools.packages.find]
