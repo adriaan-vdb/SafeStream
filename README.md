@@ -39,12 +39,12 @@
 ```mermaid
 flowchart TD
   subgraph Users
-    U1[Viewer (HTML/JS)]
+    U1["Viewer (HTML/JS)"]
   end
 
   subgraph Backend
     GW(FastAPI WS Gateway)
-    MOD{Moderation Pipeline}
+    MOD{"Moderation Pipeline"}
     DX[Detoxify]
     DASH[Streamlit]
     LOG[(Rotating JSONL)]
@@ -57,7 +57,7 @@ flowchart TD
   MOD -- "flag" --> DASH
   GW -- "gift" --> U1
   GW --> LOG
-  LOG -. sync .-> DB
+  LOG -. sync .- DB
   DASH <-- "REST" --> GW
 ```
 
