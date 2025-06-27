@@ -182,10 +182,12 @@ SafeStream/
 ├── dashboard/                      # Streamlit moderator dashboard (stub)
 │   └── app.py
 │
-├── frontend/                       # All static assets served at /static
+├── static/                         # Static assets served at /static
 │   ├── index.html                  # TikTok-style LIVE page (GET /chat)
-│   ├── styles.css                  # dark theme + animations
-│   └── main.js                     # WebSocket client & UI logic
+│   ├── css/
+│   │   └── styles.css              # dark theme + animations
+│   └── js/
+│       └── main.js                 # WebSocket client & UI logic
 │
 ├── tests/                          # Pytest suite
 │   ├── __init__.py
@@ -243,7 +245,7 @@ Call this function for every incoming chat message; attach `toxic` + `score` to 
 Configure a `RotatingFileHandler` pointing to `logs/`. Log every inbound/outbound message as JSON. If `SQLITE_URL` is set, initialise SQLAlchemy models and write the same data to the DB.
 
 **Step 6 — Frontend Client**\
-`frontend/index.html` connects via WebSocket, renders messages in a scrollable div, colours toxic messages red, and animates gift events.
+`static/index.html` connects via WebSocket, renders messages in a scrollable div, colours toxic messages red, and animates gift events.
 
 **Step 7 — Moderator Dashboard**\
 `dashboard/app.py` uses Streamlit to stream the JSONL log (tail ‑f style) and plot the rolling toxic‑message ratio. Provide buttons to trigger gifts or disconnect abusive users.

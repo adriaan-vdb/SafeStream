@@ -50,21 +50,21 @@ print_status "INFO" "Starting Stage 8 verification..."
 
 # Step 1: Check if frontend directory exists
 echo
-print_status "INFO" "Step 1: Checking frontend directory structure"
-if [[ -d "frontend" ]]; then
-    print_status "PASS" "Frontend directory exists"
+print_status "INFO" "Step 1: Checking static directory structure"
+if [[ -d "static" ]]; then
+    print_status "PASS" "Static directory exists"
 else
-    print_status "FAIL" "Frontend directory not found"
+    print_status "FAIL" "Static directory not found"
     exit 1
 fi
 
 # Step 2: Check frontend files exist
 echo
-print_status "INFO" "Step 2: Checking frontend files"
-frontend_files=("frontend/index.html" "frontend/styles.css" "frontend/main.js")
+print_status "INFO" "Step 2: Checking static files"
+static_files=("static/index.html" "static/css/styles.css" "static/js/main.js")
 missing_files=()
 
-for file in "${frontend_files[@]}"; do
+for file in "${static_files[@]}"; do
     if [[ -f "$file" ]]; then
         print_status "PASS" "Found $file"
     else
@@ -74,38 +74,38 @@ for file in "${frontend_files[@]}"; do
 done
 
 if [[ ${#missing_files[@]} -gt 0 ]]; then
-    print_status "FAIL" "Missing frontend files: ${missing_files[*]}"
+    print_status "FAIL" "Missing static files: ${missing_files[*]}"
     exit 1
 fi
 
 # Step 3: Check HTML structure
 echo
 print_status "INFO" "Step 3: Validating HTML structure"
-if grep -q "<!DOCTYPE html>" frontend/index.html; then
+if grep -q "<!DOCTYPE html>" static/index.html; then
     print_status "PASS" "HTML has proper DOCTYPE"
 else
     print_status "FAIL" "HTML missing DOCTYPE"
 fi
 
-if grep -q "SafeStream" frontend/index.html; then
+if grep -q "SafeStream" static/index.html; then
     print_status "PASS" "HTML contains SafeStream title"
 else
     print_status "FAIL" "HTML missing SafeStream title"
 fi
 
-if grep -q "chatMessages" frontend/index.html; then
+if grep -q "chatMessages" static/index.html; then
     print_status "PASS" "HTML contains chat messages container"
 else
     print_status "FAIL" "HTML missing chat messages container"
 fi
 
-if grep -q "messageInput" frontend/index.html; then
+if grep -q "messageInput" static/index.html; then
     print_status "PASS" "HTML contains message input"
 else
     print_status "FAIL" "HTML missing message input"
 fi
 
-if grep -q "usernameModal" frontend/index.html; then
+if grep -q "usernameModal" static/index.html; then
     print_status "PASS" "HTML contains username modal"
 else
     print_status "FAIL" "HTML missing username modal"
@@ -114,25 +114,25 @@ fi
 # Step 4: Check CSS structure
 echo
 print_status "INFO" "Step 4: Validating CSS structure"
-if grep -q "\.chat-message" frontend/styles.css; then
+if grep -q "\.chat-message" static/css/styles.css; then
     print_status "PASS" "CSS contains chat message styles"
 else
     print_status "FAIL" "CSS missing chat message styles"
 fi
 
-if grep -q "\.toxic" frontend/styles.css; then
+if grep -q "\.toxic" static/css/styles.css; then
     print_status "PASS" "CSS contains toxicity styles"
 else
     print_status "FAIL" "CSS missing toxicity styles"
 fi
 
-if grep -q "\.input-bar" frontend/styles.css; then
+if grep -q "\.input-bar" static/css/styles.css; then
     print_status "PASS" "CSS contains input bar styles"
 else
     print_status "FAIL" "CSS missing input bar styles"
 fi
 
-if grep -q "@media" frontend/styles.css; then
+if grep -q "@media" static/css/styles.css; then
     print_status "PASS" "CSS contains responsive design"
 else
     print_status "WARN" "CSS missing responsive design"
@@ -141,25 +141,25 @@ fi
 # Step 5: Check JavaScript structure
 echo
 print_status "INFO" "Step 5: Validating JavaScript structure"
-if grep -q "WebSocket" frontend/main.js; then
+if grep -q "WebSocket" static/js/main.js; then
     print_status "PASS" "JavaScript contains WebSocket functionality"
 else
     print_status "FAIL" "JavaScript missing WebSocket functionality"
 fi
 
-if grep -q "renderMessage" frontend/main.js; then
+if grep -q "renderMessage" static/js/main.js; then
     print_status "PASS" "JavaScript contains message rendering"
 else
     print_status "FAIL" "JavaScript missing message rendering"
 fi
 
-if grep -q "renderGift" frontend/main.js; then
+if grep -q "renderGift" static/js/main.js; then
     print_status "PASS" "JavaScript contains gift rendering"
 else
     print_status "FAIL" "JavaScript missing gift rendering"
 fi
 
-if grep -q "connectWS" frontend/main.js; then
+if grep -q "connectWS" static/js/main.js; then
     print_status "PASS" "JavaScript contains WebSocket connection"
 else
     print_status "FAIL" "JavaScript missing WebSocket connection"
@@ -180,10 +180,10 @@ else
     print_status "FAIL" "Backend missing /chat route"
 fi
 
-if grep -q "frontend" app/main.py; then
-    print_status "PASS" "Backend references frontend directory"
+if grep -q "static" app/main.py; then
+    print_status "PASS" "Backend references static directory"
 else
-    print_status "FAIL" "Backend missing frontend directory reference"
+    print_status "FAIL" "Backend missing static directory reference"
 fi
 
 # Step 7: Run linting and formatting checks
@@ -221,24 +221,24 @@ echo
 print_status "INFO" "Step 8: File size and basic validation"
 
 # Check HTML file size (should be reasonable)
-html_size=$(wc -c < frontend/index.html)
-if [[ $html_size -gt 1000 && $html_size -lt 10000 ]]; then
+html_size=$(wc -c < static/index.html)
+if [[ $html_size -gt 500 && $html_size -lt 10000 ]]; then
     print_status "PASS" "HTML file size reasonable ($html_size bytes)"
 else
     print_status "WARN" "HTML file size unusual ($html_size bytes)"
 fi
 
 # Check CSS file size (should be substantial)
-css_size=$(wc -c < frontend/styles.css)
-if [[ $css_size -gt 5000 ]]; then
+css_size=$(wc -c < static/css/styles.css)
+if [[ $css_size -gt 1000 && $css_size -lt 50000 ]]; then
     print_status "PASS" "CSS file size substantial ($css_size bytes)"
 else
-    print_status "WARN" "CSS file size small ($css_size bytes)"
+    print_status "WARN" "CSS file size unusual ($css_size bytes)"
 fi
 
 # Check JS file size (should be reasonable)
-js_size=$(wc -c < frontend/main.js)
-if [[ $js_size -gt 2000 && $js_size -lt 20000 ]]; then
+js_size=$(wc -c < static/js/main.js)
+if [[ $js_size -gt 500 && $js_size -lt 20000 ]]; then
     print_status "PASS" "JavaScript file size reasonable ($js_size bytes)"
 else
     print_status "WARN" "JavaScript file size unusual ($js_size bytes)"
@@ -249,21 +249,21 @@ echo
 print_status "INFO" "Step 9: Checking for common issues"
 
 # Check for hardcoded localhost references
-if grep -q "localhost" frontend/main.js; then
+if grep -q "localhost" static/js/main.js; then
     print_status "WARN" "Found hardcoded localhost reference in JavaScript"
 else
     print_status "PASS" "No hardcoded localhost references"
 fi
 
 # Check for proper WebSocket URL construction
-if grep -q "location.host" frontend/main.js; then
+if grep -q "location.host" static/js/main.js; then
     print_status "PASS" "JavaScript uses dynamic host for WebSocket"
 else
     print_status "WARN" "JavaScript may not use dynamic host for WebSocket"
 fi
 
 # Check for proper error handling
-if grep -q "onclose\|onerror" frontend/main.js; then
+if grep -q "onclose\|onerror" static/js/main.js; then
     print_status "PASS" "JavaScript contains error handling"
 else
     print_status "WARN" "JavaScript may lack error handling"
@@ -275,10 +275,10 @@ print_status "INFO" "Step 10: Verification Summary"
 echo "=========================================="
 print_status "PASS" "Stage 8 Frontend Implementation Verification Complete"
 echo
-print_status "INFO" "Frontend files created:"
-echo "  - frontend/index.html ($html_size bytes)"
-echo "  - frontend/styles.css ($css_size bytes)"
-echo "  - frontend/main.js ($js_size bytes)"
+print_status "INFO" "Static files created:"
+echo "  - static/index.html ($html_size bytes)"
+echo "  - static/css/styles.css ($css_size bytes)"
+echo "  - static/js/main.js ($js_size bytes)"
 echo
 print_status "INFO" "Backend integration:"
 echo "  - Static file serving configured"

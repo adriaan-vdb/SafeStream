@@ -1,0 +1,9 @@
+docs: update README and verification scripts for new static directory structure
+
+- Update README.md project layout to reflect static/ directory structure
+- Update Dockerfile to copy static/ instead of frontend/
+- Update Step8.bash verification script to check static/css/ and static/js/
+- Update Step8.md documentation with new file organization
+- Fix all references from frontend/ to static/ throughout codebase
+
+Frontend now properly organized following web standards with CSS and JS in subdirectories. 

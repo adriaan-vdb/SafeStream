@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeStream - Live Chat</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Video Background Placeholder -->
+    <div class="video-bg">
+        <div class="video-placeholder">
+            <div class="placeholder-text">🎥 Live Stream</div>
+        </div>
+    </div>
+
+    <!-- Chat Panel -->
+    <div class="chat-panel">
+        <div class="chat-messages" id="chatMessages">
+            <!-- Messages will be dynamically added here -->
+        </div>
+    </div>
+
+    <!-- Reactions Column -->
+    <div class="reactions-column">
+        <div class="heart-reaction">❤️</div>
+        <div class="heart-reaction">💖</div>
+        <div class="heart-reaction">💕</div>
+        <div class="heart-reaction">💗</div>
+        <div class="heart-reaction">💓</div>
+    </div>
+
+    <!-- Input Bar -->
+    <div class="input-bar">
+        <input type="text" id="messageInput" placeholder="Type a message..." maxlength="200">
+        <button id="sendButton">Send</button>
+    </div>
+
+    <!-- Username Modal -->
+    <div class="modal" id="usernameModal">
+        <div class="modal-content">
+            <h2>Enter Your Username</h2>
+            <input type="text" id="usernameInput" placeholder="Username" maxlength="20">
+            <button id="joinButton">Join Chat</button>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html> 
