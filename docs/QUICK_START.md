@@ -1,8 +1,21 @@
 # Quick Start Guide
 
+### For Development Verification tests ###
+lsof -i :8000
+kill -9 34693
 cd /Users/adriaanvanderberg/Documents/Interests/Software/TikTok/SafeStream
 source .venv312/bin/activate
 ./DevelopmentVerification/all_verifications.sh
+
+### For Running The Server ###
+cd /path/to/SafeStream
+source .venv312/bin/activate
+uvicorn app.main:app --reload
+
+Open: http://localhost:8000/chat
+
+Enter a username in the modal to join the chat.
+Chat and see real-time messages, gifts, and reactions
 
 ## Environment Setup
 

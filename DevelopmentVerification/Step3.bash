@@ -61,7 +61,14 @@ echo "▶ Step 2: Testing infrastructure verification..."
 # Run the enhanced test suite
 # This tests: root endpoint, health endpoint, OpenAPI docs, and schema
 echo "  🧪 Running enhanced test suite..."
-pytest -q
+pytest -q --tb=short --maxfail=1 || {
+    echo "  ⚠️  Pytest failed, trying with different options..."
+    pytest -q --tb=short --maxfail=1 --disable-warnings || {
+        echo "  ❌ Pytest still failing, checking for specific issues..."
+        pytest --collect-only
+        exit 1
+    }
+}
 
 # Verify test count (should be 4 tests: root, health, docs, schema)
 echo "  📊 Test results verified"
@@ -179,7 +186,7 @@ echo "▶ Step 8: Final verification..."
 echo "  🔍 Final quality check..."
 black --check . && echo "  ✅ Black formatting: PASS"
 ruff check . && echo "  ✅ Ruff linting: PASS"
-pytest -q && echo "  ✅ Pytest tests: PASS"
+pytest -q --tb=short --maxfail=1 && echo "  ✅ Pytest tests: PASS"
 
 # Verify project structure
 echo "  📁 Project structure verification..."

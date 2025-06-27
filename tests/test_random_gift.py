@@ -90,7 +90,6 @@ class TestRandomGiftProducer:
         with patch("random.randint", side_effect=[123, 3]):
             mock_logger = Mock()
             with patch("app.events.logging.getLogger", return_value=mock_logger):
-
                 # Create a test gift event
                 gift_event = GiftEventOut(from_user="bot", gift_id=123, amount=3)
 

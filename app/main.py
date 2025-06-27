@@ -13,7 +13,8 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
 
 from app import events, moderation, schemas
 
@@ -66,6 +67,9 @@ def create_app(testing: bool = False) -> FastAPI:
         lifespan=lifespan_func,
     )
 
+    # Mount static files for frontend
+    app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
     # Configure logging
     def setup_logging():
         """Setup rotating JSONL logging for chat messages."""
@@ -100,6 +104,14 @@ def create_app(testing: bool = False) -> FastAPI:
     async def health():
         """Health check endpoint returning 200."""
         return {"status": "healthy"}
+
+    @app.get("/chat", include_in_schema=False)
+    async def chat_page():
+        """Serve the main chat page."""
+        return Response(
+            Path("frontend/index.html").read_text(encoding="utf-8"),
+            media_type="text/html",
+        )
 
     @app.websocket("/ws/{username}")
     async def websocket_endpoint(websocket: WebSocket, username: str):
@@ -194,5 +206,4 @@ def create_app(testing: bool = False) -> FastAPI:
 app = create_app(testing=False)
 
 
-# TODO(stage-6): Add frontend HTML/JS client - see README Step 6
 # TODO(stage-7): Add database logging and JWT authentication - see README Step 7

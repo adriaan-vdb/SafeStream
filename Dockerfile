@@ -23,6 +23,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY app/ ./app/
 COPY tests/ ./tests/
+COPY frontend/ ./frontend/
 
 # Create logs directory
 RUN mkdir -p logs
