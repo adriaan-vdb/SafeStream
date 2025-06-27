@@ -170,21 +170,56 @@ GitHub Actions pipeline:
 ## 12. Project Layout
 
 ```
-├── app/             # FastAPI backend
-│   ├── main.py
-│   ├── moderation.py
-│   ├── events.py
-│   ├── schemas.py
-│   └── db.py
-├── dashboard/       # Streamlit
+SafeStream/
+├── app/                            # FastAPI back-end package
+│   ├── __init__.py
+│   ├── main.py                     # entry-point, WS + static serving
+│   ├── moderation.py               # Detoxify integration
+│   ├── events.py                   # random-gift producer
+│   ├── schemas.py                  # Pydantic models
+│   └── db.py                       # (stub) DB models
+│
+├── dashboard/                      # Streamlit moderator dashboard (stub)
 │   └── app.py
-├── frontend/        # Static HTML/JS
-│   └── index.html
-├── tests/
-├── load/
+│
+├── frontend/                       # All static assets served at /static
+│   ├── index.html                  # TikTok-style LIVE page (GET /chat)
+│   ├── styles.css                  # dark theme + animations
+│   └── main.js                     # WebSocket client & UI logic
+│
+├── tests/                          # Pytest suite
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── test_smoke.py
+│   ├── test_schemas.py
+│   ├── test_ws_basic.py
+│   ├── test_gift.py
+│   ├── test_random_gift.py
+│   ├── test_moderation.py
+│   ├── test_events.py
+│   └── test_frontend_basic.py      # checks /chat route
+│
+├── DevelopmentVerification/        # Dev-helpers & CI dry-runs
+│
+├── docs/                           # Project docs & diagrams
+│   └── DEV_SETUP.md
+│
+├── load/                           # Locust load-test (stub)
+│   └── locustfile.py
+│
+├── logs/                           # Rotating JSONL logs (git-ignored)
+│   └── .gitkeep
+│
+├── scripts/                        # Additional utility scripts
+│   ├── Step7.bash
+│   └── test-ci.sh
+│
 ├── Dockerfile
 ├── docker-compose.yml
-└── README.md
+├── .pre-commit-config.yaml
+├── pyproject.toml
+├── README.md
+└── LICENSE
 ```
 
 ---

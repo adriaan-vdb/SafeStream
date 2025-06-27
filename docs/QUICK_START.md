@@ -3,8 +3,10 @@
 ### For Development Verification tests ###
 lsof -i :8000
 kill -9 34693
+
 cd /Users/adriaanvanderberg/Documents/Interests/Software/TikTok/SafeStream
 source .venv312/bin/activate
+-> Make sure Docker is running
 ./DevelopmentVerification/all_verifications.sh
 
 ### For Running The Server ###
@@ -12,7 +14,11 @@ cd /path/to/SafeStream
 source .venv312/bin/activate
 uvicorn app.main:app --reload
 
-Open: http://localhost:8000/chat
+You should access:
+Main Chat Interface: http://localhost:8000/chat
+API Documentation: http://localhost:8000/docs
+Health Check: http://localhost:8000/healthz
+Moderator Dashboard: http://localhost:8501 (if running Streamlit)
 
 Enter a username in the modal to join the chat.
 Chat and see real-time messages, gifts, and reactions

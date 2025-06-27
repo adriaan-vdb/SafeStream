@@ -84,10 +84,10 @@ python3 -m pytest -v
 TEST_COUNT=$(python3 -m pytest --collect-only | grep "tests collected" | awk '{print $1}')
 echo "  - Total tests collected: $TEST_COUNT"
 
-if [ "$TEST_COUNT" -eq 42 ]; then
-    echo "  ✅ Expected test count (42) matches actual count"
+if [ "$TEST_COUNT" -eq 48 ]; then
+    echo "  ✅ Test count matches expected: $TEST_COUNT"
 else
-    echo "  ❌ Unexpected test count: expected 42, got $TEST_COUNT"
+    echo "  ❌ Unexpected test count: expected 48, got $TEST_COUNT"
     exit 1
 fi
 

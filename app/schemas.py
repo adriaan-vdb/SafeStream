@@ -45,8 +45,8 @@ class GiftEventOut(BaseModel):
 
     type: Literal["gift"] = Field(default="gift", description="Event type")
     from_user: str = Field(..., alias="from", description="Username sending the gift")
-    gift_id: int = Field(..., description="Unique gift identifier")
-    amount: int = Field(..., description="Quantity of gifts sent")
+    gift_id: int = Field(..., description="Unique gift identifier", ge=0)
+    amount: int = Field(..., description="Quantity of gifts sent", ge=1)
 
 
 # TODO(stage-6): Add database models for persistence

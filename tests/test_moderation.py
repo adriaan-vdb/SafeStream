@@ -9,7 +9,21 @@ import pytest
 from app.moderation import predict
 
 
-@pytest.mark.skipif(os.getenv("DISABLE_DETOXIFY") == "1", reason="Stub active")
+def _can_load_detoxify():
+    """Check if Detoxify can be loaded (SentencePiece available)."""
+    try:
+        from detoxify import Detoxify
+
+        Detoxify("original-small")
+        return True
+    except ImportError:
+        return False
+
+
+@pytest.mark.skipif(
+    os.getenv("DISABLE_DETOXIFY") == "1" or not _can_load_detoxify(),
+    reason="Stub active or Detoxify not available",
+)
 def test_predict_toxic_real_model():
     """Test toxicity prediction with real Detoxify model."""
     result = asyncio.run(predict("you are stupid"))
@@ -17,7 +31,10 @@ def test_predict_toxic_real_model():
     assert 0.0 <= result[1] <= 1.0
 
 
-@pytest.mark.skipif(os.getenv("DISABLE_DETOXIFY") == "1", reason="Stub active")
+@pytest.mark.skipif(
+    os.getenv("DISABLE_DETOXIFY") == "1" or not _can_load_detoxify(),
+    reason="Stub active or Detoxify not available",
+)
 def test_predict_non_toxic_real_model():
     """Test non-toxic prediction with real Detoxify model."""
     result = asyncio.run(predict("hello world"))
@@ -38,7 +55,10 @@ def test_predict_stub_toxic_text():
 
 
 @patch.dict(os.environ, {"TOXIC_THRESHOLD": "0.1"})
-@pytest.mark.skipif(os.getenv("DISABLE_DETOXIFY") == "1", reason="Stub active")
+@pytest.mark.skipif(
+    os.getenv("DISABLE_DETOXIFY") == "1" or not _can_load_detoxify(),
+    reason="Stub active or Detoxify not available",
+)
 def test_predict_custom_threshold():
     """Test custom toxicity threshold."""
     result = asyncio.run(predict("hello world"))
