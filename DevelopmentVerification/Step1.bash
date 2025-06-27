@@ -22,7 +22,7 @@ set -e  # Exit on first error
 ################################################################################
 
 # Create a new virtual environment (skip if one already exists)
-python3 -m venv .venv
+python3.12 -m venv .venv
 
 # Activate it:
 # On macOS/Linux:

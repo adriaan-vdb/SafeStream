@@ -6,7 +6,7 @@
 ### Before running the script:
 
 # Activate your virtual environment if not already active
-# python3 -m venv .venv
+# python3.12 -m venv .venv
 # source .venv/bin/activate
 
 # Install all required dependencies

@@ -284,6 +284,47 @@ Key environment variables (see [Configuration](../README.md#5-configuration)):
 - `TOXIC_THRESHOLD`: Moderation threshold (default: 0.6)
 - `GIFT_RATE_SEC`: Gift simulation rate (default: 15)
 
+### ML Moderation Setup (Stage 7+)
+
+SafeStream uses Detoxify for toxicity detection. Setup options:
+
+#### Option A: Full ML Moderation (Recommended for Production)
+```bash
+# Install with ML dependencies
+pip install -e ".[dev,ml]"
+
+# Run with real toxicity detection
+uvicorn app.main:app --reload
+```
+
+#### Option B: Stub Mode (Recommended for Development/CI)
+```bash
+# Install without ML dependencies
+pip install -e ".[dev]"
+
+# Disable Detoxify (uses stub that always returns non-toxic)
+export DISABLE_DETOXIFY=1
+uvicorn app.main:app --reload
+```
+
+#### Environment Variables for ML Moderation
+- `DISABLE_DETOXIFY`: Set to "1" to use stub mode (default: "0")
+- `TOXIC_THRESHOLD`: Threshold for toxic classification (default: 0.6)
+
+#### ML Moderation Performance
+- **First run**: Downloads ~60MB model, slow inference
+- **Subsequent runs**: ~10ms inference on CPU, ~200MB RAM usage
+- **Model**: Detoxify "original-small" (HuggingFace)
+
+#### Testing ML Moderation
+```bash
+# Test with real model
+pytest tests/test_moderation.py
+
+# Test with stub mode
+DISABLE_DETOXIFY=1 pytest tests/test_moderation.py
+```
+
 ## Next Steps
 
 After setup, continue with:

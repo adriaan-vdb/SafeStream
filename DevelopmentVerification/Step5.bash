@@ -67,14 +67,14 @@ python3 -m pytest tests/test_gift.py -v
 echo "▶ Running complete test suite..."
 python3 -m pytest -v
 
-# Verify test count (should be >= 27 for all E2E + smoke + schema tests)
+# Verify test count (should be 42 tests total for complete test suite)
 TEST_COUNT=$(python3 -m pytest --collect-only | grep "tests collected" | awk '{print $1}')
 echo "  - Total tests collected: $TEST_COUNT"
 
-if [ "$TEST_COUNT" -ge 27 ]; then
-    echo "  ✅ Test count ($TEST_COUNT) is as expected or higher"
+if [ "$TEST_COUNT" -eq 42 ]; then
+    echo "  ✅ Expected test count (42) matches actual count"
 else
-    echo "  ❌ Unexpected test count: expected >=27, got $TEST_COUNT"
+    echo "  ❌ Unexpected test count: expected 42, got $TEST_COUNT"
     exit 1
 fi
 
@@ -138,12 +138,4 @@ echo "  - Protocol compliance with README Section 6"
 echo "  - Code quality (black, ruff, pre-commit)"
 echo "  - Validation and error handling"
 echo ""
-echo "Ready for Stage 6: Random gift generator and further enhancements"
-
-# After running pytest, check the test count
-TEST_COUNT=$(pytest --collect-only | grep -c 'Function test_')
-if [ "$TEST_COUNT" -eq 32 ]; then
-    echo "  ✅ Expected test count (32) matches actual count"
-else
-    echo "  ❌ Unexpected test count: expected 32, got $TEST_COUNT"
-fi 
+echo "Ready for Stage 6: Random gift generator and further enhancements" 

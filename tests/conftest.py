@@ -9,13 +9,14 @@ from datetime import datetime
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import create_app
 from app.schemas import ChatMessageIn, ChatMessageOut, GiftEventOut
 
 
 @pytest.fixture
 def client():
     """Provide a test client for FastAPI application."""
+    app = create_app(testing=True)
     return TestClient(app)
 
 

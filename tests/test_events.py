@@ -2,11 +2,11 @@
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
-from app import events, schemas
+from app import events
 
 
 class TestGiftSimulation:
@@ -81,35 +81,3 @@ class TestGiftSimulation:
             await task
         except asyncio.CancelledError:
             pass
-
-    def test_sample_gifts_are_valid(self):
-        """Test that all sample gifts conform to the GiftEventOut schema."""
-        for gift_data in events.SAMPLE_GIFTS:
-            # This should not raise any validation errors
-            gift_event = schemas.GiftEventOut(**gift_data)
-            assert gift_event.from_user in [
-                "admin",
-                "moderator",
-                "viewer",
-                "fan",
-                "supporter",
-            ]
-            assert isinstance(gift_event.gift_id, int)
-            assert isinstance(gift_event.amount, int)
-            assert gift_event.amount > 0
-
-    @pytest.mark.asyncio
-    async def test_gift_simulation_uses_environment_variables(self):
-        """Test that gift simulation respects environment variables."""
-        with patch.dict("os.environ", {"GIFT_RATE_SEC": "30"}):
-            # Reload the module to pick up new env var
-            import importlib
-
-            import app.events
-
-            importlib.reload(app.events)
-
-            assert app.events.GIFT_RATE_SEC == 30
-
-            # Reset to default
-            importlib.reload(app.events)

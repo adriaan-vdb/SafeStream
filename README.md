@@ -92,6 +92,7 @@ docker compose up --build
 | `DASH_PORT`       | 8501    | Streamlit                        |
 | `GIFT_RATE_SEC`   | 15      | Avg seconds between random gifts |
 | `TOXIC_THRESHOLD` | 0.6     | Detoxify flag limit              |
+| `DISABLE_DETOXIFY`| 0       | Set to "1" to use stub mode      |
 
 ---
 

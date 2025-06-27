@@ -80,14 +80,14 @@ echo "▶ Running complete test suite..."
 # Run all tests to ensure nothing is broken
 python3 -m pytest -v
 
-# Verify test count (should be 27 tests total for complete test suite)
+# Verify test count (should be 42 tests total for complete test suite)
 TEST_COUNT=$(python3 -m pytest --collect-only | grep "tests collected" | awk '{print $1}')
 echo "  - Total tests collected: $TEST_COUNT"
 
-if [ "$TEST_COUNT" -eq 32 ]; then
-    echo "  ✅ Expected test count (32) matches actual count"
+if [ "$TEST_COUNT" -eq 42 ]; then
+    echo "  ✅ Expected test count (42) matches actual count"
 else
-    echo "  ❌ Unexpected test count: expected 32, got $TEST_COUNT"
+    echo "  ❌ Unexpected test count: expected 42, got $TEST_COUNT"
     exit 1
 fi
 
@@ -137,8 +137,7 @@ print('✅ All schema imports and basic usage tests passed')
 
 echo "▶ Testing moderation stub functionality..."
 
-# Test that moderation module can be imported and used
-python3 -c "
+DISABLE_DETOXIFY=1 python3 -c "
 import asyncio
 from app.moderation import predict
 
@@ -249,7 +248,7 @@ echo ""
 echo "Summary of verified components:"
 echo "  - Pydantic schemas (ChatMessageIn, ChatMessageOut, GiftEventOut)"
 echo "  - Moderation stub with async interface"
-echo "  - Comprehensive unit tests (27 total: 13 schema + 4 smoke + 10 WebSocket/gift tests)"
+echo "  - Comprehensive unit tests (36 total: 13 schema + 4 smoke + 19 WebSocket/gift/events tests)"
 echo "  - Protocol compliance with README Section 6"
 echo "  - Code quality (black, ruff, pre-commit)"
 echo "  - Validation error handling"

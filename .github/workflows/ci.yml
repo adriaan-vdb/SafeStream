@@ -13,6 +13,9 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
 
+    env:
+      DISABLE_DETOXIFY: "1"
+
     steps:
     - uses: actions/checkout@v4
 
