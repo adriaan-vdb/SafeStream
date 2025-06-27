@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
+    <div id="mobile-wrapper">
     <!-- Video Background Placeholder -->
     <div class="video-bg">
         <div class="video-placeholder">
@@ -33,7 +34,7 @@
     <!-- Input Bar -->
     <div class="input-bar">
         <input type="text" id="messageInput" placeholder="Type a message..." maxlength="200">
-        <button id="sendButton">Send</button>
+        <button id="sendButton" type="button">Send</button>
     </div>
 
     <!-- Authentication Modal -->
@@ -49,7 +50,7 @@
                 <h2>Login to SafeStream</h2>
                 <input type="text" id="loginUsername" placeholder="Username" maxlength="20">
                 <input type="password" id="loginPassword" placeholder="Password">
-                <button id="loginButton">Login</button>
+                <button id="loginButton">Submit</button>
                 <div class="auth-error" id="loginError"></div>
             </div>
             
@@ -60,12 +61,13 @@
                 <input type="email" id="registerEmail" placeholder="Email (optional)">
                 <input type="password" id="registerPassword" placeholder="Password">
                 <input type="password" id="registerPasswordConfirm" placeholder="Confirm Password">
-                <button id="registerButton">Register</button>
+                <button id="registerButton">Submit</button>
                 <div class="auth-error" id="registerError"></div>
             </div>
         </div>
     </div>
 
     <script src="/static/js/main.js"></script>
+    </div>
 </body>
 </html> 

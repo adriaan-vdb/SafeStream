@@ -1,8 +1,44 @@
 {
-  "testuser_1751057446577": {
-    "username": "testuser_1751057446577",
+  "Adriaan": {
+    "username": "Adriaan",
     "email": null,
     "disabled": false,
-    "hashed_password": "$2b$12$SJkrofwu.0ii7egCV6dKxeuWx4fTSn5MU4E3zPZJUj9f.424sKPjW"
+    "hashed_password": "$2b$12$6oORwNvadeRWJCKsyRnQe.6vt9XWe9Cza5egh6oOxzQTvLLCFTaH2"
+  },
+  "Sarah": {
+    "username": "Sarah",
+    "email": null,
+    "disabled": false,
+    "hashed_password": "$2b$12$oE.N28Q3H/KO0.BMfhSp2OVUL35BdffNeer.YNQS/nYJ76Ev3o/Qm"
+  },
+  "Bob": {
+    "username": "Bob",
+    "email": null,
+    "disabled": false,
+    "hashed_password": "$2b$12$sV8o.x8vp6ppnEaQIweA7uG4sY8umFLSY2ZWHI8lyHyhFNw/rgDby"
+  },
+  "qwertyuiop": {
+    "username": "qwertyuiop",
+    "email": null,
+    "disabled": false,
+    "hashed_password": "$2b$12$NTdF3M./ePs7NRHyhSKw2eFcuSB5j4K3Nrb5hO33.oZHEeS0Rdt1u"
+  },
+  "asdfghjkl": {
+    "username": "asdfghjkl",
+    "email": null,
+    "disabled": false,
+    "hashed_password": "$2b$12$M1za4uO8XbIl7Avhw27qCuJ9P4kD7IzRJAj2EjXCqVP2KbCr.YFc6"
+  },
+  "John": {
+    "username": "John",
+    "email": null,
+    "disabled": false,
+    "hashed_password": "$2b$12$UIQqIBo8uofp8bwubt9cn.pb9cYfN3tU9AauH.KsYrq5J0H3C5F6C"
+  },
+  "Steve": {
+    "username": "Steve",
+    "email": "qwertyuiop",
+    "disabled": false,
+    "hashed_password": "$2b$12$WLp0mrGfxfBfJhBd4PyTcuLloft6T7v6UCjKOorqxb.OD6bzkbV3O"
   }
 }

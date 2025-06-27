@@ -1,9 +1,22 @@
 // main.js - SafeStream Frontend WebSocket Client with JWT Authentication
 
 let ws = null;
+let wsConnecting = false;
 let username = null;
 let authToken = null;
 let metricsInterval = null;
+let inputWasFocused = false;
+
+// Track rendered message IDs to avoid duplicates
+const renderedMessageIds = new Set();
+
+function getMessageUniqueId(msg) {
+    if (msg.msg_id) return msg.msg_id;
+    if (msg.id) return msg.id;
+    if (msg.ts) return String(msg.ts) + ':' + msg.user;
+    if (msg.timestamp) return String(msg.timestamp) + ':' + msg.user;
+    return Math.random().toString(36).slice(2) + Date.now();
+}
 
 // Check if user is already authenticated
 function checkAuthStatus() {
@@ -165,7 +178,12 @@ function logout() {
 
 function scrollChatToBottom() {
     const chatMessages = document.getElementById('chatMessages');
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    // Allow a small threshold for 'near the bottom'
+    const threshold = 40;
+    const isAtBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < threshold;
+    if (isAtBottom) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
 }
 
 function updateLiveMetrics(viewerCount = 0, giftCount = 0) {
@@ -202,16 +220,33 @@ function stopMetricsPolling() {
     }
 }
 
+function setChatMessageOpacities() {
+    const chatMessages = document.getElementById('chatMessages');
+    const messages = Array.from(chatMessages.children);
+    const total = messages.length;
+    messages.forEach((msg, i) => {
+        // index 0 is the oldest (top), last is newest (bottom)
+        const index = i;
+        // Opacity decreases as index gets lower (older)
+        const opacity = Math.max(1 - (total - 1 - index) * 0.15, 0.05);
+        msg.style.opacity = opacity;
+    });
+}
+
 function renderMessage(msg) {
     const chatMessages = document.getElementById('chatMessages');
+    const uniqueId = getMessageUniqueId(msg);
+    if (renderedMessageIds.has(uniqueId)) return; // Already rendered
+    renderedMessageIds.add(uniqueId);
     const div = document.createElement('div');
     div.className = 'chat-message';
     if (msg.toxic) {
         div.classList.add('toxic');
         div.setAttribute('data-toxicity', `Toxicity: ${(msg.score * 100).toFixed(1)}%`);
     }
-    div.innerHTML = `<span class="chat-username">${msg.user}</span> <span class="chat-text">${msg.message}</span>`;
+    div.innerHTML = `<span class=\"chat-username\">${msg.user}</span> <span class=\"chat-text\">${msg.message}</span>`;
     chatMessages.appendChild(div);
+    setChatMessageOpacities();
     scrollChatToBottom();
 }
 
@@ -251,15 +286,26 @@ function connectWS() {
         console.error('No authentication token or username');
         return;
     }
-    
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING || wsConnecting)) {
+        return; // Already connected or connecting
+    }
+    wsConnecting = true;
+    if (ws) {
+        ws.close();
+        ws = null;
+    }
     ws = new WebSocket(`ws://${location.host}/ws/${encodeURIComponent(username)}?token=${encodeURIComponent(authToken)}`);
-    
     ws.onopen = () => {
+        wsConnecting = false;
         console.log('WebSocket connected');
+        const input = document.getElementById('messageInput');
         document.getElementById('messageInput').disabled = false;
         document.getElementById('sendButton').disabled = false;
+        if (inputWasFocused) {
+            input.focus();
+            inputWasFocused = false;
+        }
     };
-    
     ws.onmessage = (event) => {
         let data;
         try {
@@ -267,27 +313,24 @@ function connectWS() {
         } catch {
             return;
         }
-        
         if (data.type === 'chat') {
             renderMessage(data);
         } else if (data.type === 'gift') {
             renderGift(data);
         } else if (data.type === 'metrics') {
-            // Handle live metrics updates from WebSocket
             updateLiveMetrics(data.viewer_count || 0, data.gift_count || 0);
         }
     };
-    
     ws.onclose = (event) => {
+        wsConnecting = false;
         console.log('WebSocket disconnected:', event.code, event.reason);
+        const input = document.getElementById('messageInput');
+        inputWasFocused = (document.activeElement === input);
         document.getElementById('messageInput').disabled = true;
         document.getElementById('sendButton').disabled = true;
-        
-        // If authentication failed, show login modal
         if (event.code === 1008) {
             logout();
         } else {
-            // Try to reconnect after a delay
             setTimeout(() => {
                 if (authToken && username) {
                     connectWS();
@@ -295,8 +338,8 @@ function connectWS() {
             }, 2000);
         }
     };
-    
     ws.onerror = (error) => {
+        wsConnecting = false;
         console.error('WebSocket error:', error);
     };
 }
@@ -305,10 +348,10 @@ function sendMessage() {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
     if (!text) return;
-    
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'chat', message: text }));
         input.value = '';
+        input.focus(); // Keep the textbox selected
     }
 }
 

@@ -11,6 +11,7 @@ pip install -e ".[dev,ml]"
 uvicorn app.main:app --reload
 
 -> Make sure Docker is running
+docker ps -a | grep safestream | awk '{print $1}' | xargs -r docker rm -f # remove docker containers
 ./DevelopmentVerification/all_verifications.sh
 ./DevelopmentVerification/Step10.bash
 python -m pytest -v

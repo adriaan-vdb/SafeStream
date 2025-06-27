@@ -12,6 +12,19 @@ body {
     overflow: hidden;
     height: 100vh;
     width: 100vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#mobile-wrapper {
+    width: 100vw;
+    max-width: 430px;
+    height: 100vh;
+    box-shadow: 0 0 32px 0 rgba(0,0,0,0.5);
+    position: relative;
+    background: #111;
+    overflow: hidden;
 }
 
 /* Video Background */
@@ -50,6 +63,9 @@ body {
     z-index: 10;
     pointer-events: none;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
 }
 
 .chat-messages {
@@ -60,11 +76,12 @@ body {
     overflow-y: auto;
     padding: 10px;
     pointer-events: auto;
+    justify-content: flex-end;
 }
 
 /* Chat Message */
 .chat-message {
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.5);
     border-radius: 18px;
     padding: 8px 12px;
     max-width: 80%;
@@ -192,7 +209,7 @@ body {
 }
 
 .input-bar button {
-    background: #FF4D4D;
+    background: #ff0050;
     color: white;
     border: none;
     border-radius: 20px;
@@ -204,7 +221,7 @@ body {
 }
 
 .input-bar button:hover {
-    background: #ff3333;
+    background: #e60046;
 }
 
 .input-bar button:disabled {
@@ -340,12 +357,12 @@ body {
 }
 
 .modal-content input:focus {
-    border-color: #FF4D4D;
+    border-color: #ff0050;
 }
 
 .modal-content button {
     width: 100%;
-    background: #FF4D4D;
+    background: #ff0050;
     color: white;
     border: none;
     border-radius: 8px;
@@ -357,7 +374,7 @@ body {
 }
 
 .modal-content button:hover {
-    background: #ff3333;
+    background: #e60046;
 }
 
 .modal.hidden {
@@ -369,8 +386,10 @@ body {
     display: flex;
     margin-bottom: 20px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.1);
+    background: none;
     padding: 4px;
+    gap: 4px;
+    box-shadow: none;
 }
 
 .tab-button {
@@ -383,15 +402,16 @@ body {
     cursor: pointer;
     transition: all 0.2s;
     font-weight: 500;
+    box-shadow: none;
 }
 
 .tab-button.active {
-    background: #FF4D4D;
+    background: #ff0050;
     color: white;
 }
 
 .tab-button:hover:not(.active) {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 0, 80, 0.15);
     color: white;
 }
 
@@ -421,6 +441,13 @@ body {
 
 /* Mobile Optimizations */
 @media (max-width: 430px) {
+    body {
+        display: block;
+    }
+    #mobile-wrapper {
+        max-width: 100vw;
+        height: 100vh;
+    }
     .chat-panel {
         left: 5px;
         width: calc(100% - 70px);
