@@ -68,7 +68,7 @@ def create_app(testing: bool = False) -> FastAPI:
     )
 
     # Mount static files for frontend
-    app.mount("/static", StaticFiles(directory="frontend"), name="static")
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
     # Configure logging
     def setup_logging():
@@ -109,7 +109,7 @@ def create_app(testing: bool = False) -> FastAPI:
     async def chat_page():
         """Serve the main chat page."""
         return Response(
-            Path("frontend/index.html").read_text(encoding="utf-8"),
+            Path("static/index.html").read_text(encoding="utf-8"),
             media_type="text/html",
         )
 
