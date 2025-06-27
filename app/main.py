@@ -11,7 +11,6 @@ import logging
 import logging.handlers
 import os
 import re
-import uuid
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -313,7 +312,6 @@ def create_app(testing: bool = False) -> FastAPI:
                         toxic=toxic,
                         score=score,
                         ts=datetime.now(UTC),
-                        msg_id=str(uuid.uuid4()),
                     )
 
                     # Log message to JSONL

@@ -23,7 +23,7 @@ class ChatMessageIn(BaseModel):
 class ChatMessageOut(BaseModel):
     """Schema for outgoing chat messages via WebSocket.
 
-    Matches README API protocol: {"type":"chat","user":"alice","message":"hello","toxic":false,"score":0.02,"ts":"2025-06-26T12:34:56Z", "msg_id": "..."}
+    Matches README API protocol: {"type":"chat","user":"alice","message":"hello","toxic":false,"score":0.02,"ts":"2025-06-26T12:34:56Z"}
     """
 
     type: Literal["chat"] = Field(default="chat", description="Message type")
@@ -32,7 +32,6 @@ class ChatMessageOut(BaseModel):
     toxic: bool = Field(..., description="Whether message was flagged as toxic")
     score: float = Field(..., description="Toxicity score from moderation")
     ts: datetime = Field(..., description="Timestamp of message")
-    msg_id: str = Field(..., description="Unique message ID")
 
 
 class GiftEventOut(BaseModel):

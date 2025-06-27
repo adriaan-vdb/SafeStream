@@ -11,11 +11,11 @@ let inputWasFocused = false;
 const renderedMessageIds = new Set();
 
 function getMessageUniqueId(msg) {
-    if (msg.msg_id) return msg.msg_id;
+    // Prefer server-provided id or timestamp
     if (msg.id) return msg.id;
-    if (msg.ts) return String(msg.ts) + ':' + msg.user;
-    if (msg.timestamp) return String(msg.timestamp) + ':' + msg.user;
-    return Math.random().toString(36).slice(2) + Date.now();
+    if (msg.timestamp) return msg.timestamp + ':' + msg.user + ':' + msg.message;
+    // Fallback: hash of user+message+date
+    return btoa(unescape(encodeURIComponent(msg.user + ':' + msg.message + ':' + (msg.date || ''))));
 }
 
 // Check if user is already authenticated
