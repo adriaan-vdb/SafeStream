@@ -40,12 +40,12 @@ def test_chat_route_includes_styles(client):
 def test_static_files_served(client):
     """Test that static files are served correctly."""
     # Test CSS file
-    response = client.get("/static/styles.css")
+    response = client.get("/static/css/styles.css")
     assert response.status_code == 200
     assert "text/css" in response.headers["content-type"]
 
     # Test JS file
-    response = client.get("/static/main.js")
+    response = client.get("/static/js/main.js")
     assert response.status_code == 200
     # FastAPI serves JS as text/javascript, not application/javascript
     assert "text/javascript" in response.headers["content-type"]
