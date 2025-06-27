@@ -1,18 +1,81 @@
-# Quick Start Guide
+# SafeStream — How to Run and Use Everything
 
-### For Development Verification tests ###
+## 1. Backend API (FastAPI + WebSocket)
+**Start the backend server:**
+```bash
 lsof -i :8000
 kill -9 34693
-
 cd /Users/adriaanvanderberg/Documents/Interests/Software/TikTok/SafeStream
-source .venv312/bin/activate
+source .venv312/bin/activate  # Activate your virtual environment
+pip install -e ".[dev,ml]"
+uvicorn app.main:app --reload
+
 -> Make sure Docker is running
 ./DevelopmentVerification/all_verifications.sh
+./DevelopmentVerification/Step10.bash
+python -m pytest -v
+```
+- **API Docs:** http://localhost:8000/docs
+- **Health Check:** http://localhost:8000/healthz
+- **Chat UI:** http://localhost:8000/chat
+- **WebSocket:** ws://localhost:8000/ws/{username}
 
-### For Running The Server ###
-cd /path/to/SafeStream
-source .venv312/bin/activate
-uvicorn app.main:app --reload
+## 2. Moderator Dashboard (Streamlit)
+**Start the dashboard:**
+```bash
+streamlit run dashboard/app.py
+```
+- **Dashboard UI:** http://localhost:8501
+
+## 3. Sending Gifts (API)
+**Manual gift trigger:**
+```bash
+curl -X POST http://localhost:8000/api/gift -H "Content-Type: application/json" \
+  -d '{"from":"admin","gift_id":999,"amount":1}'
+```
+
+## 4. Resetting Metrics and Logs
+- **Reset metrics:**  
+  ```bash
+  curl -X POST http://localhost:8000/api/admin/reset_metrics
+  ```
+- **Reset logs:**  
+  ```bash
+  rm logs/*.jsonl
+  ```
+
+## 5. Running Tests and Verification
+**Run all verification scripts:**
+```bash
+./DevelopmentVerification/all_verifications.sh
+```
+**Run tests manually:**
+```bash
+pytest
+```
+
+## 6. Docker (Optional)
+**Build and run with Docker Compose:**
+```bash
+docker compose up --build
+```
+- This will start both the API and dashboard in containers.
+
+## 7. Development Tips
+- **Install dependencies:**  
+  ```bash
+  pip install -e ".[dev]"
+  ```
+- **Format code:**  
+  ```bash
+  black .
+  ```
+- **Lint code:**  
+  ```bash
+  ruff check .
+  ```
+
+---
 
 You should access:
 Main Chat Interface: http://localhost:8000/chat

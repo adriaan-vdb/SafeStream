@@ -6,21 +6,270 @@ TODO(stage-7): Add buttons to trigger gifts and disconnect users
 TODO(stage-7): Create moderator interface for chat management
 """
 
-# TODO(stage-7): import streamlit as st
-# TODO(stage-7): import pandas as pd
-# TODO(stage-7): import json
-# TODO(stage-7): from datetime import datetime
+import glob
+import json
+from datetime import datetime
+
+import altair as alt
+import pandas as pd
+import requests
+import streamlit as st
+
+# Optional: watchdog for file tailing
+try:
+    # from watchdog.events import FileSystemEventHandler
+    # from watchdog.observers import Observer
+    WATCHDOG_AVAILABLE = True
+except ImportError:
+    WATCHDOG_AVAILABLE = False
+
+LOG_GLOB = "logs/chat_*.jsonl"
+METRICS_URL = "http://localhost:8000/metrics"
+PINK = "#ff0050"
+
+st.set_page_config(
+    page_title="SafeStream Moderator Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# --- Custom CSS for dark mode and TikTok pink accents ---
+CUSTOM_CSS = f"""
+<style>
+body, .stApp {{ background: #181818 !important; color: #fff !important; }}
+[data-testid="stMetricValue"] {{ color: {PINK} !important; }}
+.stButton>button {{ border: 2px solid {PINK}; color: #fff; background: #181818; }}
+.stButton>button:hover {{ background: {PINK}; color: #fff; }}
+.stTextInput>div>input {{ border: 2px solid {PINK}; }}
+.stDataFrame th, .stDataFrame td {{ border-color: {PINK} !important; }}
+</style>
+"""
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+# --- Data Source Selection ---
+data_source = st.sidebar.radio("Data Source", ["Log File Tail", "Metrics API Poll"])
+
+# --- DataFrame State ---
+if "df" not in st.session_state:
+    st.session_state.df = pd.DataFrame(
+        columns=["ts", "user", "msg", "toxic", "score", "gift", "amount"]
+    )
 
 
-# TODO(stage-7): def main():
-#     """Main Streamlit dashboard application."""
-#     st.title("SafeStream Moderator Dashboard")
-#     st.write("Real-time chat moderation and analytics")
-#
-#     # TODO: Add log streaming
-#     # TODO: Add toxic ratio plotting
-#     # TODO: Add moderator controls
+# --- Helper: Parse log line ---
+def parse_log_line(line):
+    try:
+        data = json.loads(line)
+        ts = data.get("ts") or data.get("timestamp") or datetime.now().isoformat()
+        user = data.get("user") or data.get("from") or ""
+        msg = data.get("message") or data.get("msg")
+        toxic = data.get("toxic", False)
+        score = data.get("score", 0.0)
+        gift = data.get("gift_id") or data.get("gift")
+        amount = data.get("amount")
+        return {
+            "ts": ts,
+            "user": user,
+            "msg": msg,
+            "toxic": toxic,
+            "score": score,
+            "gift": gift,
+            "amount": amount,
+        }
+    except Exception:
+        return None
 
 
-# TODO(stage-7): if __name__ == "__main__":
-#     main()
+# --- Data Fetching ---
+def fetch_log_tail():
+    files = sorted(glob.glob(LOG_GLOB), reverse=True)
+    if not files:
+        return pd.DataFrame(
+            columns=["ts", "user", "msg", "toxic", "score", "gift", "amount"]
+        )
+    latest = files[0]
+    rows = []
+    try:
+        with open(latest) as f:
+            for line in f.readlines()[-200:]:
+                parsed = parse_log_line(line)
+                if parsed:
+                    rows.append(parsed)
+    except Exception:
+        pass
+    return pd.DataFrame(rows)
+
+
+def fetch_metrics_poll():
+    try:
+        r = requests.get(METRICS_URL, timeout=1)
+        if r.ok:
+            m = r.json()
+            now = datetime.now().isoformat()
+            return pd.DataFrame(
+                [
+                    {
+                        "ts": now,
+                        "user": "-",
+                        "msg": None,
+                        "toxic": None,
+                        "score": None,
+                        "gift": None,
+                        "amount": None,
+                        "viewer_count": m.get("viewer_count", 0),
+                        "gift_count": m.get("gift_count", 0),
+                        "toxic_pct": m.get("toxic_pct", 0.0),
+                    }
+                ]
+            )
+    except Exception:
+        pass
+    return pd.DataFrame()
+
+
+# --- Main Data Update Loop ---
+def update_data():
+    if data_source == "Log File Tail":
+        st.session_state.df = fetch_log_tail()
+    else:
+        st.session_state.df = fetch_metrics_poll()
+
+
+# --- UI: Top KPIs ---
+def render_kpis(df):
+    if data_source == "Log File Tail":
+        viewer_count = "-"
+        gift_count = df["amount"].fillna(0).astype(int).sum() if not df.empty else 0
+        toxic_pct = (
+            (df["toxic"].sum() / len(df) * 100)
+            if (not df.empty and df["toxic"].notnull().any())
+            else 0.0
+        )
+    else:
+        # Metrics poll
+        viewer_count = int(df["viewer_count"].iloc[-1]) if not df.empty else 0
+        gift_count = int(df["gift_count"].iloc[-1]) if not df.empty else 0
+        toxic_pct = float(df["toxic_pct"].iloc[-1]) if not df.empty else 0.0
+    kpi1, kpi2, kpi3 = st.columns(3)
+    kpi1.metric("Viewers", viewer_count)
+    kpi2.metric("Total Gifts", gift_count)
+    kpi3.metric("Toxic %", f"{toxic_pct:.1f}%")
+
+
+# --- UI: Rolling Table with Filtering ---
+def render_table(df):
+    st.subheader("Recent Messages")
+    filter_user = st.text_input("Filter by username", "")
+    filter_toxic = st.checkbox("Show only toxic", False)
+    filtered = df.copy()
+    if filter_user:
+        filtered = filtered[
+            filtered["user"].str.contains(filter_user, case=False, na=False)
+        ]
+    if filter_toxic:
+        filtered = filtered[filtered["toxic"]]
+
+    def highlight_toxic(row):
+        return ["background-color: #ffcccc;" if row.toxic else "" for _ in row]
+
+    if not filtered.empty:
+        st.dataframe(
+            filtered.tail(200).style.apply(highlight_toxic, axis=1),
+            use_container_width=True,
+        )
+    else:
+        st.info("No messages to display.")
+
+
+# --- UI: Charts ---
+def render_charts(df):
+    st.subheader("Analytics")
+    # Line: Toxic % over time
+    if not df.empty and "ts" in df and "toxic" in df:
+        df_time = df.copy()
+        df_time["ts"] = pd.to_datetime(df_time["ts"], errors="coerce")
+        df_time = df_time.dropna(subset=["ts"])
+        if not df_time.empty:
+            df_time = df_time.sort_values("ts")
+            window = 60
+            df_time["toxic_rolling"] = (
+                df_time["toxic"]
+                .rolling(window=min(window, len(df_time)), min_periods=1)
+                .mean()
+                * 100
+            )
+            chart = (
+                alt.Chart(df_time)
+                .mark_line(color=PINK)
+                .encode(
+                    x=alt.X("ts:T", title="Time"),
+                    y=alt.Y("toxic_rolling:Q", title="Toxic % (rolling)"),
+                )
+                .properties(height=200)
+            )
+            st.altair_chart(chart, use_container_width=True)
+    # Bar: Top gifters
+    if not df.empty and "user" in df and "amount" in df:
+        df_gift = df[df["amount"].notnull() & df["user"].notnull()]
+        if not df_gift.empty:
+            top_gifters = (
+                df_gift.groupby("user")["amount"].sum().nlargest(10).reset_index()
+            )
+            bar = (
+                alt.Chart(top_gifters)
+                .mark_bar(color=PINK)
+                .encode(
+                    x=alt.X("amount:Q", title="Gift Amount"),
+                    y=alt.Y("user:N", sort="-x", title="User"),
+                    tooltip=["user", "amount"],
+                )
+                .properties(height=200)
+            )
+            st.altair_chart(bar, use_container_width=True)
+
+
+# --- UI: Admin Actions ---
+def render_actions():
+    st.subheader("Admin Actions")
+    username = st.text_input("Username to moderate", "")
+    col1, col2 = st.columns(2)
+    if col1.button("Kick", use_container_width=True, key="kick"):
+        if username:
+            try:
+                r = requests.post(
+                    "http://localhost:8000/api/admin/kick", json={"username": username}
+                )
+                if r.ok:
+                    st.success(f"Kicked {username}")
+                else:
+                    st.error(f"Failed to kick {username}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+    if col2.button("Mute 5 min", use_container_width=True, key="mute"):
+        if username:
+            try:
+                r = requests.post(
+                    "http://localhost:8000/api/admin/mute", json={"username": username}
+                )
+                if r.ok:
+                    st.success(f"Muted {username} for 5 min")
+                else:
+                    st.error(f"Failed to mute {username}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+
+# --- Main App Loop ---
+def main():
+    st.title("SafeStream Moderator Dashboard")
+    update_data()
+    render_kpis(st.session_state.df)
+    render_table(st.session_state.df)
+    render_charts(st.session_state.df)
+    render_actions()
+    # Auto-refresh every 1s
+    st.rerun()
+
+
+if __name__ == "__main__":
+    main()

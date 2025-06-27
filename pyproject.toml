@@ -26,6 +26,10 @@ dependencies = [
     "black",
     "ruff",
     "pytest",
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+    "python-multipart",
+    "bcrypt<4.1.0",  # Pin to compatible version
     # TODO(stage-7): "streamlit",  # Moderator dashboard
     # TODO(stage-5): "sqlalchemy",  # Database ORM
     # TODO(stage-8): "locust",  # Load testing
@@ -41,6 +45,13 @@ dev = [
     "websockets",  # WebSocket client for testing
     "detoxify~=0.5",  # ML moderation
     "torch>=2.0,<3.0",  # Required by detoxify
+    "mypy",  # Type checking
+]
+
+dash = [
+    "streamlit",
+    "pandas",
+    "watchdog"
 ]
 
 [tool.setuptools.packages.find]
@@ -70,7 +81,7 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "B", "C4", "UP"]
-ignore = ["E501"]  # Line too long, handled by black
+ignore = ["E501", "B008"]  # Line too long, handled by black; B008 false positive for FastAPI
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"

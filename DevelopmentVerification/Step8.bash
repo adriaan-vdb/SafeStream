@@ -1,9 +1,38 @@
 #!/bin/bash
 
-# Step 8 Verification Script: Frontend Skeleton and WebSocket Client
-# Verifies Stage 8 implementation including frontend files, static serving, and basic functionality
+# SafeStream Stage 8 Verification Script
+# Tests Stage 8-C (Live Metrics) and Stage 8-D (UI Tests & Load Testing)
 
-set -e  # Exit on any error
+# === Robust Test/CI Prelude ===
+set -e
+
+ruff check --fix .
+black .
+
+export DISABLE_DETOXIFY=1
+export JWT_SECRET_KEY="test-secret-key-for-verification"
+export JWT_EXPIRE_MINUTES=30
+export TEST_USERNAME="testuser_$(date +%s)"
+export API_USERNAME="apiuser_$(date +%s)"
+export TARGET_USERNAME="targetuser_$(date +%s)"
+
+rm -f users.json test_users.json
+
+pkill -f "uvicorn.*8002" 2>/dev/null || true
+sleep 2
+
+cleanup() {
+    docker stop safestream-test-container 2>/dev/null || true
+    docker rm safestream-test-container 2>/dev/null || true
+    pkill -f "uvicorn.*8030" 2>/dev/null || true
+    rm -f users.json test_users.json
+}
+trap cleanup EXIT
+
+echo "=== SafeStream Stage 8 Verification ==="
+echo "Testing Stage 8-C: Live Metrics"
+echo "Testing Stage 8-D: UI Tests & Load Testing"
+echo
 
 # Colors for output
 RED='\033[0;31m'
@@ -11,6 +40,11 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Server management variables
+SERVER_PID=""
+SERVER_PORT=8000
+SERVER_URL="http://localhost:$SERVER_PORT"
 
 # Function to print colored output
 print_status() {
@@ -23,274 +57,302 @@ print_status() {
         "FAIL")
             echo -e "${RED}✗ FAIL${NC}: $message"
             ;;
+        "SKIP")
+            echo -e "${YELLOW}⚠ SKIP${NC}: $message"
+            ;;
         "INFO")
             echo -e "${BLUE}ℹ INFO${NC}: $message"
-            ;;
-        "WARN")
-            echo -e "${YELLOW}⚠ WARN${NC}: $message"
             ;;
     esac
 }
 
-echo "=========================================="
-echo "Stage 8 Verification: Frontend Implementation"
-echo "=========================================="
-echo
+# Function to check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
 
-# Change to project directory
-cd "$(dirname "$0")/.." || exit 1
+# Function to start the FastAPI server
+start_server() {
+    print_status "INFO" "Starting FastAPI server on port $SERVER_PORT..."
+    
+    # Start server in background
+    python3 -m uvicorn app.main:app --host 0.0.0.0 --port $SERVER_PORT --reload >/dev/null 2>&1 &
+    SERVER_PID=$!
+    
+    # Wait for server to start
+    local max_attempts=30
+    local attempt=0
+    while [ $attempt -lt $max_attempts ]; do
+        if curl -s "$SERVER_URL/healthz" >/dev/null 2>&1; then
+            print_status "PASS" "Server started successfully (PID: $SERVER_PID)"
+            return 0
+        fi
+        sleep 1
+        attempt=$((attempt + 1))
+    done
+    
+    print_status "FAIL" "Server failed to start within 30 seconds"
+    return 1
+}
 
-# Check if we're in the right directory
-if [[ ! -f "pyproject.toml" ]]; then
-    print_status "FAIL" "Not in SafeStream project directory"
-    exit 1
-fi
-
-print_status "INFO" "Starting Stage 8 verification..."
-
-# Step 1: Check if frontend directory exists
-echo
-print_status "INFO" "Step 1: Checking static directory structure"
-if [[ -d "static" ]]; then
-    print_status "PASS" "Static directory exists"
-else
-    print_status "FAIL" "Static directory not found"
-    exit 1
-fi
-
-# Step 2: Check frontend files exist
-echo
-print_status "INFO" "Step 2: Checking static files"
-static_files=("static/index.html" "static/css/styles.css" "static/js/main.js")
-missing_files=()
-
-for file in "${static_files[@]}"; do
-    if [[ -f "$file" ]]; then
-        print_status "PASS" "Found $file"
-    else
-        print_status "FAIL" "Missing $file"
-        missing_files+=("$file")
+# Function to stop the FastAPI server
+stop_server() {
+    if [ -n "$SERVER_PID" ]; then
+        print_status "INFO" "Stopping server (PID: $SERVER_PID)..."
+        kill $SERVER_PID 2>/dev/null || true
+        wait $SERVER_PID 2>/dev/null || true
+        SERVER_PID=""
+        print_status "PASS" "Server stopped"
     fi
-done
+}
 
-if [[ ${#missing_files[@]} -gt 0 ]]; then
-    print_status "FAIL" "Missing static files: ${missing_files[*]}"
-    exit 1
-fi
+# Function to wait for server to be ready
+wait_for_server() {
+    local max_attempts=10
+    local attempt=0
+    while [ $attempt -lt $max_attempts ]; do
+        if curl -s "$SERVER_URL/healthz" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+        attempt=$((attempt + 1))
+    done
+    return 1
+}
 
-# Step 3: Check HTML structure
-echo
-print_status "INFO" "Step 3: Validating HTML structure"
-if grep -q "<!DOCTYPE html>" static/index.html; then
-    print_status "PASS" "HTML has proper DOCTYPE"
-else
-    print_status "FAIL" "HTML missing DOCTYPE"
-fi
-
-if grep -q "SafeStream" static/index.html; then
-    print_status "PASS" "HTML contains SafeStream title"
-else
-    print_status "FAIL" "HTML missing SafeStream title"
-fi
-
-if grep -q "chatMessages" static/index.html; then
-    print_status "PASS" "HTML contains chat messages container"
-else
-    print_status "FAIL" "HTML missing chat messages container"
-fi
-
-if grep -q "messageInput" static/index.html; then
-    print_status "PASS" "HTML contains message input"
-else
-    print_status "FAIL" "HTML missing message input"
-fi
-
-if grep -q "usernameModal" static/index.html; then
-    print_status "PASS" "HTML contains username modal"
-else
-    print_status "FAIL" "HTML missing username modal"
-fi
-
-# Step 4: Check CSS structure
-echo
-print_status "INFO" "Step 4: Validating CSS structure"
-if grep -q "\.chat-message" static/css/styles.css; then
-    print_status "PASS" "CSS contains chat message styles"
-else
-    print_status "FAIL" "CSS missing chat message styles"
-fi
-
-if grep -q "\.toxic" static/css/styles.css; then
-    print_status "PASS" "CSS contains toxicity styles"
-else
-    print_status "FAIL" "CSS missing toxicity styles"
-fi
-
-if grep -q "\.input-bar" static/css/styles.css; then
-    print_status "PASS" "CSS contains input bar styles"
-else
-    print_status "FAIL" "CSS missing input bar styles"
-fi
-
-if grep -q "@media" static/css/styles.css; then
-    print_status "PASS" "CSS contains responsive design"
-else
-    print_status "WARN" "CSS missing responsive design"
-fi
-
-# Step 5: Check JavaScript structure
-echo
-print_status "INFO" "Step 5: Validating JavaScript structure"
-if grep -q "WebSocket" static/js/main.js; then
-    print_status "PASS" "JavaScript contains WebSocket functionality"
-else
-    print_status "FAIL" "JavaScript missing WebSocket functionality"
-fi
-
-if grep -q "renderMessage" static/js/main.js; then
-    print_status "PASS" "JavaScript contains message rendering"
-else
-    print_status "FAIL" "JavaScript missing message rendering"
-fi
-
-if grep -q "renderGift" static/js/main.js; then
-    print_status "PASS" "JavaScript contains gift rendering"
-else
-    print_status "FAIL" "JavaScript missing gift rendering"
-fi
-
-if grep -q "connectWS" static/js/main.js; then
-    print_status "PASS" "JavaScript contains WebSocket connection"
-else
-    print_status "FAIL" "JavaScript missing WebSocket connection"
-fi
-
-# Step 6: Check backend integration
-echo
-print_status "INFO" "Step 6: Checking backend integration"
-if grep -q "StaticFiles" app/main.py; then
-    print_status "PASS" "Backend contains static file serving"
-else
-    print_status "FAIL" "Backend missing static file serving"
-fi
-
-if grep -q "/chat" app/main.py; then
-    print_status "PASS" "Backend contains /chat route"
-else
-    print_status "FAIL" "Backend missing /chat route"
-fi
-
-if grep -q "static" app/main.py; then
-    print_status "PASS" "Backend references static directory"
-else
-    print_status "FAIL" "Backend missing static directory reference"
-fi
-
-# Step 7: Run linting and formatting checks
-echo
-print_status "INFO" "Step 7: Running code quality checks"
-
-# Check if ruff is available
-if command -v ruff >/dev/null 2>&1; then
-    print_status "INFO" "Running ruff linting..."
-    if ruff check .; then
-        print_status "PASS" "Ruff linting passed"
+# Function to run test and capture result
+run_test() {
+    local test_name="$1"
+    local test_command="$2"
+    
+    echo "Running: $test_name"
+    if eval "$test_command" >/dev/null 2>&1; then
+        print_status "PASS" "$test_name"
+        return 0
     else
-        print_status "FAIL" "Ruff linting failed"
-        exit 1
+        print_status "FAIL" "$test_name"
+        return 1
+    fi
+}
+
+# Track overall success
+overall_success=true
+
+echo "=== Stage 8-C: Live Metrics Testing ==="
+
+# Test 1: Check if metrics module exists
+if [ -f "app/metrics.py" ]; then
+    print_status "PASS" "Metrics module exists"
+else
+    print_status "FAIL" "Metrics module missing"
+    overall_success=false
+fi
+
+# Start server for metrics tests
+if start_server; then
+    # Test 2: Check if metrics endpoint is accessible
+    if curl -s "$SERVER_URL/metrics" >/dev/null 2>&1; then
+        print_status "PASS" "Metrics endpoint accessible"
+    else
+        print_status "FAIL" "Metrics endpoint not accessible"
+        overall_success=false
+    fi
+
+    # Test 3: Check metrics response structure
+    metrics_response=$(curl -s "$SERVER_URL/metrics" 2>/dev/null || echo "{}")
+    if echo "$metrics_response" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    required_keys = ['viewer_count', 'gift_count', 'toxic_pct']
+    if all(key in data for key in required_keys):
+        print('PASS')
+    else:
+        print('FAIL')
+except:
+    print('FAIL')
+" | grep -q "PASS"; then
+        print_status "PASS" "Metrics response has correct structure"
+    else
+        print_status "FAIL" "Metrics response missing required fields"
+        overall_success=false
     fi
 else
-    print_status "WARN" "Ruff not found, skipping linting"
+    print_status "FAIL" "Could not start server for metrics tests"
+    overall_success=false
 fi
 
-# Check if black is available for formatting
-if command -v black >/dev/null 2>&1; then
-    print_status "INFO" "Running black formatting check..."
-    if black --check .; then
-        print_status "PASS" "Black formatting check passed"
+# Test 4: Run metrics unit tests
+if python3 -m pytest tests/test_metrics.py -v --tb=short >/dev/null 2>&1; then
+    print_status "PASS" "Metrics unit tests pass"
+else
+    print_status "FAIL" "Metrics unit tests fail"
+    overall_success=false
+fi
+
+echo
+echo "=== Stage 8-D: UI Tests & Load Testing ==="
+
+# Test 5: Check if Playwright UI test exists
+if [ -f "tests/test_ui_playwright.py" ]; then
+    print_status "PASS" "Playwright UI test file exists"
+else
+    print_status "FAIL" "Playwright UI test file missing"
+    overall_success=false
+fi
+
+# Test 6: Check if Locust load test exists
+if [ -f "load/locustfile.py" ]; then
+    print_status "PASS" "Locust load test file exists"
+else
+    print_status "FAIL" "Locust load test file missing"
+    overall_success=false
+fi
+
+# Test 7: Check if Playwright is available (optional)
+if command_exists playwright; then
+    print_status "PASS" "Playwright is installed"
+    playwright_available=true
+else
+    print_status "SKIP" "Playwright not installed (optional)"
+    playwright_available=false
+fi
+
+# Test 8: Check if Locust is available (optional)
+if command_exists locust; then
+    print_status "PASS" "Locust is installed"
+    locust_available=true
+else
+    print_status "SKIP" "Locust not installed (optional)"
+    locust_available=false
+fi
+
+# Test 8.5: Check if websocat is available (optional)
+if command_exists websocat; then
+    print_status "PASS" "websocat is installed"
+    websocat_available=true
+else
+    print_status "SKIP" "websocat not installed (optional)"
+    websocat_available=false
+fi
+
+# Test 9: Run Playwright tests if available
+if [ "$playwright_available" = true ]; then
+    if ENABLE_PLAYWRIGHT_TESTS=1 python3 -m pytest tests/test_ui_playwright.py::TestSafeStreamUI::test_metrics_endpoint -v --tb=short >/dev/null 2>&1; then
+        print_status "PASS" "Playwright metrics test passes"
     else
-        print_status "FAIL" "Black formatting check failed"
-        exit 1
+        print_status "FAIL" "Playwright metrics test fails"
+        overall_success=false
     fi
 else
-    print_status "WARN" "Black not found, skipping formatting check"
+    print_status "SKIP" "Skipping Playwright tests (not installed)"
 fi
 
-# Step 8: Check file sizes and basic validation
-echo
-print_status "INFO" "Step 8: File size and basic validation"
+# Test 10: Test metrics integration with chat
+echo "Testing metrics integration..."
+# Ensure server is running
+if [ -z "$SERVER_PID" ]; then
+    if ! start_server; then
+        print_status "FAIL" "Could not start server for integration test"
+        overall_success=false
+    fi
+fi
 
-# Check HTML file size (should be reasonable)
-html_size=$(wc -c < static/index.html)
-if [[ $html_size -gt 500 && $html_size -lt 10000 ]]; then
-    print_status "PASS" "HTML file size reasonable ($html_size bytes)"
+# Start a background process to send some activity
+(
+    sleep 2
+    # Send a gift (this doesn't require websocat)
+    curl -s -X POST "$SERVER_URL/api/gift" -H "Content-Type: application/json" -d '{"from":"test","gift_id":1,"amount":5}' >/dev/null 2>&1
+    sleep 1
+    # Send another gift to ensure we have activity
+    curl -s -X POST "$SERVER_URL/api/gift" -H "Content-Type: application/json" -d '{"from":"test2","gift_id":2,"amount":3}' >/dev/null 2>&1
+    sleep 1
+) &
+
+# Check metrics after activity
+sleep 5
+metrics_after=$(curl -s "$SERVER_URL/metrics" 2>/dev/null || echo "{}")
+if echo "$metrics_after" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    if data.get('gift_count', 0) > 0:
+        print('PASS')
+    else:
+        print('FAIL')
+except:
+    print('FAIL')
+" | grep -q "PASS"; then
+    print_status "PASS" "Metrics track activity correctly"
 else
-    print_status "WARN" "HTML file size unusual ($html_size bytes)"
+    print_status "FAIL" "Metrics not tracking activity"
+    overall_success=false
 fi
 
-# Check CSS file size (should be substantial)
-css_size=$(wc -c < static/css/styles.css)
-if [[ $css_size -gt 1000 && $css_size -lt 50000 ]]; then
-    print_status "PASS" "CSS file size substantial ($css_size bytes)"
+# Test 11: Check if all existing tests still pass
+echo
+echo "=== Verifying Existing Tests Still Pass ==="
+if python3 -m pytest tests/ -v --tb=short >/dev/null 2>&1; then
+    print_status "PASS" "All existing tests pass"
 else
-    print_status "WARN" "CSS file size unusual ($css_size bytes)"
+    print_status "FAIL" "Some existing tests fail"
+    overall_success=false
 fi
 
-# Check JS file size (should be reasonable)
-js_size=$(wc -c < static/js/main.js)
-if [[ $js_size -gt 500 && $js_size -lt 20000 ]]; then
-    print_status "PASS" "JavaScript file size reasonable ($js_size bytes)"
+# Test 12: Check linting
+echo
+echo "=== Code Quality Checks ==="
+if python3 -m ruff check . >/dev/null 2>&1; then
+    print_status "PASS" "Ruff linting passes"
 else
-    print_status "WARN" "JavaScript file size unusual ($js_size bytes)"
+    print_status "FAIL" "Ruff linting fails"
+    overall_success=false
 fi
 
-# Step 9: Check for common issues
-echo
-print_status "INFO" "Step 9: Checking for common issues"
-
-# Check for hardcoded localhost references
-if grep -q "localhost" static/js/main.js; then
-    print_status "WARN" "Found hardcoded localhost reference in JavaScript"
+# Test 13: Check formatting
+if python3 -m black --check . >/dev/null 2>&1; then
+    print_status "PASS" "Black formatting check passes"
 else
-    print_status "PASS" "No hardcoded localhost references"
+    print_status "FAIL" "Black formatting check fails"
+    overall_success=false
 fi
 
-# Check for proper WebSocket URL construction
-if grep -q "location.host" static/js/main.js; then
-    print_status "PASS" "JavaScript uses dynamic host for WebSocket"
+# Test 14: Check type hints
+if python3 -m mypy app/ --ignore-missing-imports >/dev/null 2>&1; then
+    print_status "PASS" "Type checking passes"
 else
-    print_status "WARN" "JavaScript may not use dynamic host for WebSocket"
+    print_status "FAIL" "Type checking fails"
+    overall_success=false
 fi
 
-# Check for proper error handling
-if grep -q "onclose\|onerror" static/js/main.js; then
-    print_status "PASS" "JavaScript contains error handling"
+echo
+echo "=== Stage 8 Verification Summary ==="
+
+if [ "$overall_success" = true ]; then
+    print_status "PASS" "Stage 8 verification completed successfully!"
+    echo
+    echo "Stage 8-C Features:"
+    echo "  ✓ Live metrics tracking (viewer_count, gift_count, toxic_pct)"
+    echo "  ✓ Metrics API endpoint (/metrics)"
+    echo "  ✓ Integration with WebSocket and gift events"
+    echo "  ✓ Comprehensive metrics tests"
+    echo
+    echo "Stage 8-D Features:"
+    echo "  ✓ Playwright UI tests (if installed)"
+    echo "  ✓ Locust load testing framework"
+    echo "  ✓ WebSocket and HTTP load simulation"
+    echo "  ✓ Metrics monitoring under load"
+    echo
+    echo "Next Steps:"
+    echo "  1. Install Playwright: pip install playwright && playwright install"
+    echo "  2. Install Locust: pip install locust"
+    echo "  3. Run UI tests: ENABLE_PLAYWRIGHT_TESTS=1 python -m pytest tests/test_ui_playwright.py"
+    echo "  4. Run load tests: locust -f load/locustfile.py --host=http://localhost:8000"
+    echo "  5. Monitor metrics: curl http://localhost:8000/metrics"
+    exit 0
 else
-    print_status "WARN" "JavaScript may lack error handling"
-fi
-
-# Step 10: Summary
-echo
-print_status "INFO" "Step 10: Verification Summary"
-echo "=========================================="
-print_status "PASS" "Stage 8 Frontend Implementation Verification Complete"
-echo
-print_status "INFO" "Static files created:"
-echo "  - static/index.html ($html_size bytes)"
-echo "  - static/css/styles.css ($css_size bytes)"
-echo "  - static/js/main.js ($js_size bytes)"
-echo
-print_status "INFO" "Backend integration:"
-echo "  - Static file serving configured"
-echo "  - /chat route implemented"
-echo "  - WebSocket client ready"
-echo
-print_status "INFO" "Next steps:"
-echo "  - Test frontend manually at http://localhost:8000/chat"
-echo "  - Verify WebSocket connections work"
-echo "  - Test mobile responsiveness"
-echo "  - Validate toxicity highlighting"
-echo
-
-print_status "PASS" "Stage 8 verification completed successfully!"
-exit 0 
+    print_status "FAIL" "Stage 8 verification failed!"
+    echo
+    echo "Please fix the failing tests before proceeding."
+    exit 1
+fi 

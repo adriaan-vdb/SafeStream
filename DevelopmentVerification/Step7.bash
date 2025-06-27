@@ -13,7 +13,31 @@
 # chmod +x DevelopmentVerification/Step7.bash
 # ./DevelopmentVerification/Step7.bash
 
+# === Robust Test/CI Prelude ===
 set -e
+
+ruff check --fix .
+black .
+
+export DISABLE_DETOXIFY=1
+export JWT_SECRET_KEY="test-secret-key-for-verification"
+export JWT_EXPIRE_MINUTES=30
+export TEST_USERNAME="testuser_$(date +%s)"
+export API_USERNAME="apiuser_$(date +%s)"
+export TARGET_USERNAME="targetuser_$(date +%s)"
+
+rm -f users.json test_users.json
+
+pkill -f "uvicorn.*8002" 2>/dev/null || true
+sleep 2
+
+cleanup() {
+    docker stop safestream-test-container 2>/dev/null || true
+    docker rm safestream-test-container 2>/dev/null || true
+    pkill -f "uvicorn.*8002" 2>/dev/null || true
+    rm -f users.json test_users.json
+}
+trap cleanup EXIT
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -254,14 +278,33 @@ import json
 import sys
 from fastapi.testclient import TestClient
 from app.main import create_app
+from app.auth import create_user, create_access_token
 
 async def test_api_integration():
     # Use test app (no background tasks)
     app = create_app(testing=True)
     client = TestClient(app)
     
-    # Test WebSocket with moderation
-    with client.websocket_connect("/ws/modtest") as ws:
+    # Create a test user and generate a valid JWT token
+    test_username = "modtest"
+    test_password = "testpass123"
+    
+    # Register user
+    response = client.post(
+        "/auth/register",
+        json={"username": test_username, "password": test_password}
+    )
+    
+    if response.status_code != 200:
+        print(f"Failed to create test user: {response.status_code} - {response.json()}", file=sys.stderr)
+        sys.exit(1)
+    
+    # Get the JWT token from the response
+    token_data = response.json()
+    jwt_token = token_data["access_token"]
+    
+    # Test WebSocket with moderation and valid token
+    with client.websocket_connect(f"/ws/{test_username}?token={jwt_token}") as ws:
         # Send message
         ws.send_text(json.dumps({"type": "chat", "message": "hello world"}))
         
@@ -271,7 +314,7 @@ async def test_api_integration():
         
         # Check that moderation fields are present
         if (data.get("type") == "chat" and 
-            data.get("user") == "modtest" and
+            data.get("user") == test_username and
             "toxic" in data and
             "score" in data):
             print(f"API_INTEGRATION_OK: toxic={data['toxic']}, score={data['score']}")

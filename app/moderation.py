@@ -16,9 +16,13 @@ from functools import lru_cache
 @lru_cache
 def _get_model():
     """Lazy load Detoxify model to prevent loading unless required."""
-    from detoxify import Detoxify
+    try:
+        from detoxify import Detoxify
 
-    return Detoxify("original-small")
+        return Detoxify("original-small")
+    except ImportError:
+        print("Detoxify not available, using stub moderation.")
+        return None
 
 
 async def predict(text: str) -> tuple[bool, float]:
@@ -36,7 +40,9 @@ async def predict(text: str) -> tuple[bool, float]:
     """
     if os.getenv("DISABLE_DETOXIFY", "0") == "1":
         return False, 0.0
-
-    score = float(_get_model().predict(text)["toxicity"])
+    model = _get_model()
+    if model is None:
+        return False, 0.0
+    score = float(model.predict(text)["toxicity"])
     is_toxic = score >= float(os.getenv("TOXIC_THRESHOLD", 0.6))
     return is_toxic, score

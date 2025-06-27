@@ -9,8 +9,9 @@
 | Area       | Capability                                                       |
 | ---------- | ---------------------------------------------------------------- |
 | Real‑time  | WebSockets over FastAPI + Uvicorn                                |
+| Auth       | JWT authentication with bcrypt password hashing                  |
 | Moderation | Detoxify (plug‑in interface for any `text-classification` model) |
-| Dual UI    | Vanilla HTML/JS client • Streamlit moderator dashboard           |
+| Dual UI    | Vanilla HTML/JS client with animated gift badges • Streamlit moderator dashboard           |
 | Events     | Random or API‑triggered gift events                              |
 | Storage    | In‑memory queue • JSONL logs • optional SQLite                   |
 | DevOps     | Docker + Compose • GitHub Actions CI • Locust load tests         |
@@ -82,12 +83,47 @@ docker compose up --build
 
 *Swagger UI:* `http://localhost:8000/docs`   *Viewer:* `http://localhost:8000/chat`   *Dashboard:* `http://localhost:8501`
 
+## Moderator Dashboard
+
+SafeStream includes a full-featured moderator dashboard built with Streamlit for real-time monitoring, moderation, and analytics.
+
+- **Features:**
+  - Real-time metrics polling from backend (`/metrics` endpoint)
+  - Log file tailing for recent chat/gift events
+  - KPI cards: Viewers, Total Gifts, Toxic %
+  - Rolling table of recent messages with filtering (by username, toxicity)
+  - Analytics charts: Toxicity over time, Top gifters
+  - Admin actions: Kick/Mute users, manual gift trigger
+  - Custom dark theme and TikTok-style accent colors
+  - Auto-refresh and manual refresh controls
+
+- **Usage:**
+  - Start backend: `uvicorn app.main:app --reload`
+  - Start dashboard: `streamlit run dashboard/app.py`
+  - Access dashboard: [http://localhost:8501](http://localhost:8501)
+  - For step-by-step instructions, see [docs/QUICK_START.md](docs/QUICK_START.md)
+
+- **Admin Endpoints:**
+  - `/api/admin/reset_metrics` (POST): Reset all metrics counters
+  - `/api/gift` (POST): Manually trigger a gift event
+  - `/api/admin/kick` (POST): Kick a user (for dashboard action)
+  - `/api/admin/mute` (POST): Mute a user (for dashboard action)
+
+- **Resetting State:**
+  - Reset metrics: `curl -X POST http://localhost:8000/api/admin/reset_metrics`
+  - Reset logs: `rm logs/*.jsonl`
+
+- **Troubleshooting:**
+  - See [docs/QUICK_START.md](docs/QUICK_START.md) for environment setup, common issues, and reset instructions.
+
 ---
 
 ## 5. Configuration
 
 | Var               | Default | Purpose                          |
 | ----------------- | ------- | -------------------------------- |
+| `JWT_SECRET_KEY`  | `your-secret-key-change-in-production` | JWT signing secret |
+| `JWT_EXPIRE_MINUTES` | 30    | JWT token expiry time           |
 | `APP_PORT`        | 8000    | FastAPI + WS                     |
 | `DASH_PORT`       | 8501    | Streamlit                        |
 | `GIFT_RATE_SEC`   | 15      | Avg seconds between random gifts |
@@ -98,7 +134,15 @@ docker compose up --build
 
 ## 6. API / Protocol
 
-### WebSocket `/ws/{username}`
+### Authentication Endpoints
+
+```bash
+POST /auth/register  {"username":"alice","password":"secret","email":"alice@example.com"}
+POST /auth/login     {"username":"alice","password":"secret"}  # form data
+GET  /auth/me        # requires Authorization: Bearer <token>
+```
+
+### WebSocket `/ws/{username}?token=<jwt_token>`
 
 *Client → Server*
 
@@ -116,6 +160,14 @@ docker compose up --build
 
 ```bash
 POST /api/gift  {"from":"admin","gift_id":999,"amount":1}
+```
+
+### Admin Endpoints (require authentication)
+
+```bash
+POST /api/admin/kick         {"username":"bob"}  # requires Authorization: Bearer <token>
+POST /api/admin/mute         {"username":"bob"}  # requires Authorization: Bearer <token>
+POST /api/admin/reset_metrics  # requires Authorization: Bearer <token>
 ```
 
 ---
@@ -159,7 +211,6 @@ GitHub Actions pipeline:
 
 ## 11. Stretch Goals
 
-- JWT‑secured WebSocket connect (`Authorization: Bearer …`).
 - Leaky‑bucket rate‑limiting middleware.
 - Language detection + translation before moderation (i18n).
 - Postgres + Alembic migrations.
@@ -185,7 +236,7 @@ SafeStream/
 ├── static/                         # Static assets served at /static
 │   ├── index.html                  # TikTok-style LIVE page (GET /chat)
 │   ├── css/
-│   │   └── styles.css              # dark theme + animations
+│   │   └── styles.css              # dark theme + animated gift badges
 │   └── js/
 │       └── main.js                 # WebSocket client & UI logic
 │
@@ -275,3 +326,4 @@ MIT — see `LICENSE`.
 
 Pre-commit hooks and CI will run Black for formatting and Ruff for linting. Do not use Ruff for formatting (ruff-format is disabled).
 
+TODO: Deploy with https://fly.io/

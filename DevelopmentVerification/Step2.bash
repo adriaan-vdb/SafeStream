@@ -14,7 +14,8 @@
 
 # To run entire script:
 # chmod +x DevelopmentVerification/Step2.bash
-# ./DevelopmentVerification/Step2.bash
+# 
+
 
 set -e  # Exit immediately if a command fails
 
@@ -146,7 +147,7 @@ if curl -f http://localhost:8002/healthz | grep -q '"status":"healthy"'; then
 else
     echo "❌ Docker-compose health endpoint test failed"
     docker compose logs
-    docker compose down
+docker compose down
     exit 1
 fi
 

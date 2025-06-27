@@ -1,0 +1,22 @@
+body, .stApp {
+    background: #181818 !important;
+    color: #fff !important;
+}
+[data-testid="stMetricValue"] {
+    color: #ff0050 !important;
+}
+.stButton>button {
+    border: 2px solid #ff0050;
+    color: #fff;
+    background: #181818;
+}
+.stButton>button:hover {
+    background: #ff0050;
+    color: #fff;
+}
+.stTextInput>div>input {
+    border: 2px solid #ff0050;
+}
+.stDataFrame th, .stDataFrame td {
+    border-color: #ff0050 !important;
+} 

@@ -36,12 +36,33 @@
         <button id="sendButton">Send</button>
     </div>
 
-    <!-- Username Modal -->
-    <div class="modal" id="usernameModal">
+    <!-- Authentication Modal -->
+    <div class="modal" id="authModal">
         <div class="modal-content">
-            <h2>Enter Your Username</h2>
-            <input type="text" id="usernameInput" placeholder="Username" maxlength="20">
-            <button id="joinButton">Join Chat</button>
+            <div class="auth-tabs">
+                <button class="tab-button active" id="loginTab">Login</button>
+                <button class="tab-button" id="registerTab">Register</button>
+            </div>
+            
+            <!-- Login Form -->
+            <div class="auth-form" id="loginForm">
+                <h2>Login to SafeStream</h2>
+                <input type="text" id="loginUsername" placeholder="Username" maxlength="20">
+                <input type="password" id="loginPassword" placeholder="Password">
+                <button id="loginButton">Login</button>
+                <div class="auth-error" id="loginError"></div>
+            </div>
+            
+            <!-- Register Form -->
+            <div class="auth-form hidden" id="registerForm">
+                <h2>Create Account</h2>
+                <input type="text" id="registerUsername" placeholder="Username" maxlength="20">
+                <input type="email" id="registerEmail" placeholder="Email (optional)">
+                <input type="password" id="registerPassword" placeholder="Password">
+                <input type="password" id="registerPasswordConfirm" placeholder="Confirm Password">
+                <button id="registerButton">Register</button>
+                <div class="auth-error" id="registerError"></div>
+            </div>
         </div>
     </div>
 

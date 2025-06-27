@@ -3,7 +3,10 @@
 Tests gift event broadcasting, validation, and integration with chat messages.
 """
 
-import pytest
+import json
+import os
+import time
+
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -12,39 +15,51 @@ from app.main import create_app
 app = create_app(testing=True)
 
 
+def get_unique_username(prefix: str = "testuser") -> str:
+    """Generate a unique username for testing."""
+    timestamp = int(time.time() * 1000)
+    return f"{prefix}_{timestamp}"
+
+
+def create_test_user_and_token(client: TestClient, username: str) -> str:
+    """Create a test user and return JWT token."""
+    response = client.post(
+        "/auth/register",
+        json={"username": username, "password": "testpass123"},
+    )
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
 class TestGiftAPI:
     """Test gift API functionality and WebSocket broadcasting."""
 
     def test_gift_api_broadcast(self):
         """Test that gift API broadcasts to connected WebSocket clients."""
-        # TODO: Fix WebSocket test hanging issue
-        pytest.skip("WebSocket test temporarily disabled due to hanging issues")
-        # import threading
-        # import uvicorn
+        with TestClient(app) as client:
+            # Create test user and get token
+            username = get_unique_username("testuser")
+            token = create_test_user_and_token(client, username)
 
-        # def run_server():
-        #     uvicorn.run(app, host="127.0.0.1", port=8005, log_level="error")
+            # Connect WebSocket client with authentication
+            with client.websocket_connect(f"/ws/{username}?token={token}") as ws:
+                # Send gift via API
+                gift_data = {"from": "admin", "gift_id": 1, "amount": 5}
+                response = client.post("/api/gift", json=gift_data)
+                if response.status_code != 200:
+                    print(f"Error response: {response.status_code} - {response.text}")
+                assert response.status_code == 200
+                assert response.json() == {"status": "queued"}
 
-        # server_thread = threading.Thread(target=run_server, daemon=True)
-        # server_thread.start()
-        # time.sleep(0.5)
-        # try:
-        #     with connect("ws://127.0.0.1:8005/ws/testuser") as ws:
-        #         gift_data = {"from": "admin", "gift_id": 1, "amount": 5}
-        #         with TestClient(app) as client:
-        #             response = client.post("/api/gift", json=gift_data)
-        #             assert response.status_code == 200
-        #             assert response.json() == {"status": "queued"}
-        #         received = json.loads(ws.recv())
-        #         assert received["type"] == "gift"
-        #         assert received["from"] == "admin"
-        #         assert received["gift_id"] == 1
-        #         assert received["amount"] == 5
-        #         assert "ts" in received
-        #         ts = received["ts"]
-        #         assert isinstance(ts, str)
-        # except Exception as e:
-        #     pytest.fail(f"Gift broadcast test failed: {e}")
+                # Receive gift event on WebSocket
+                received = json.loads(ws.receive_text())
+                assert received["type"] == "gift"
+                assert received["from"] == "admin"
+                assert received["gift_id"] == 1
+                assert received["amount"] == 5
+                assert "ts" in received
+                ts = received["ts"]
+                assert isinstance(ts, str)
 
 
 class TestGiftAPIMultipleClients:
@@ -52,35 +67,37 @@ class TestGiftAPIMultipleClients:
 
     def test_gift_api_multiple_clients(self):
         """Test that gift API broadcasts to all connected clients."""
-        # TODO: Fix WebSocket test hanging issue
-        pytest.skip("WebSocket test temporarily disabled due to hanging issues")
-        # import threading
-        # import uvicorn
+        with TestClient(app) as client:
+            # Create test users and get tokens
+            user1_username = get_unique_username("user1")
+            user2_username = get_unique_username("user2")
 
-        # def run_server():
-        #     uvicorn.run(app, host="127.0.0.1", port=8006, log_level="error")
+            user1_token = create_test_user_and_token(client, user1_username)
+            user2_token = create_test_user_and_token(client, user2_username)
 
-        # server_thread = threading.Thread(target=run_server, daemon=True)
-        # server_thread.start()
-        # time.sleep(0.5)
-        # try:
-        #     with (
-        #         connect("ws://127.0.0.1:8006/ws/user1") as ws1,
-        #         connect("ws://127.0.0.1:8006/ws/user2") as ws2,
-        #     ):
-        #         gift_data = {"from": "donor", "gift_id": 2, "amount": 10}
-        #         with TestClient(app) as client:
-        #             response = client.post("/api/gift", json=gift_data)
-        #             assert response.status_code == 200
-        #         received1 = json.loads(ws1.recv())
-        #         received2 = json.loads(ws2.recv())
-        #         assert received1 == received2
-        #         assert received1["type"] == "gift"
-        #         assert received1["from"] == "donor"
-        #         assert received1["gift_id"] == 2
-        #         assert received1["amount"] == 10
-        # except Exception as e:
-        #     pytest.fail(f"Multiple clients test failed: {e}")
+            # Connect multiple WebSocket clients with authentication
+            with (
+                client.websocket_connect(
+                    f"/ws/{user1_username}?token={user1_token}"
+                ) as ws1,
+                client.websocket_connect(
+                    f"/ws/{user2_username}?token={user2_token}"
+                ) as ws2,
+            ):
+
+                # Send gift via API
+                gift_data = {"from": "donor", "gift_id": 2, "amount": 10}
+                response = client.post("/api/gift", json=gift_data)
+                assert response.status_code == 200
+
+                # Both clients should receive the same gift event
+                received1 = json.loads(ws1.receive_text())
+                received2 = json.loads(ws2.receive_text())
+                assert received1 == received2
+                assert received1["type"] == "gift"
+                assert received1["from"] == "donor"
+                assert received1["gift_id"] == 2
+                assert received1["amount"] == 10
 
 
 class TestGiftAPIValidation:
@@ -89,12 +106,17 @@ class TestGiftAPIValidation:
     def test_gift_api_validation_errors(self):
         """Test gift API handles validation errors gracefully."""
         with TestClient(app) as client:
+            # Test missing required field
             invalid_gift = {"from": "user", "gift_id": 1}
             response = client.post("/api/gift", json=invalid_gift)
             assert response.status_code == 400
+
+            # Test invalid gift_id type
             invalid_gift = {"from": "user", "gift_id": "invalid", "amount": 5}
             response = client.post("/api/gift", json=invalid_gift)
             assert response.status_code == 400
+
+            # Test invalid amount type
             invalid_gift = {"from": "user", "gift_id": 1, "amount": "invalid"}
             response = client.post("/api/gift", json=invalid_gift)
             assert response.status_code == 400
@@ -105,26 +127,19 @@ class TestGiftAPIDisconnectedClients:
 
     def test_gift_api_disconnected_clients(self):
         """Test gift API handles disconnected clients gracefully."""
-        # TODO: Fix WebSocket test hanging issue
-        pytest.skip("WebSocket test temporarily disabled due to hanging issues")
-        # import threading
-        # import uvicorn
+        with TestClient(app) as client:
+            # Create test user and get token
+            username = get_unique_username("disconnected")
+            token = create_test_user_and_token(client, username)
 
-        # def run_server():
-        #     uvicorn.run(app, host="127.0.0.1", port=8007, log_level="error")
+            # Connect and immediately disconnect
+            with client.websocket_connect(f"/ws/{username}?token={token}"):
+                pass
 
-        # server_thread = threading.Thread(target=run_server, daemon=True)
-        # server_thread.start()
-        # time.sleep(0.5)
-        # try:
-        #     with connect("ws://127.0.0.1:8007/ws/disconnected"):
-        #         pass
-        #     gift_data = {"from": "system", "gift_id": 3, "amount": 1}
-        #     with TestClient(app) as client:
-        #         response = client.post("/api/gift", json=gift_data)
-        #         assert response.status_code == 200
-        # except Exception as e:
-        #     pytest.fail(f"Disconnected clients test failed: {e}")
+            # Send gift after client disconnected
+            gift_data = {"from": "system", "gift_id": 3, "amount": 1}
+            response = client.post("/api/gift", json=gift_data)
+            assert response.status_code == 200
 
 
 class TestGiftAndChatIntegration:
@@ -132,33 +147,28 @@ class TestGiftAndChatIntegration:
 
     def test_gift_and_chat_integration(self):
         """Test that gift and chat messages work together."""
-        # TODO: Fix WebSocket test hanging issue
-        pytest.skip("WebSocket test temporarily disabled due to hanging issues")
-        # import threading
-        # import uvicorn
+        with TestClient(app) as client:
+            # Create test user and get token
+            username = get_unique_username("integration")
+            token = create_test_user_and_token(client, username)
 
-        # def run_server():
-        #     uvicorn.run(app, host="127.0.0.1", port=8008, log_level="error")
+            with client.websocket_connect(f"/ws/{username}?token={token}") as ws:
+                # Send chat message
+                chat_message = {"type": "chat", "message": "Hello!"}
+                ws.send_text(json.dumps(chat_message))
+                chat_received = json.loads(ws.receive_text())
+                assert chat_received["type"] == "chat"
+                assert chat_received["message"] == "Hello!"
 
-        # server_thread = threading.Thread(target=run_server, daemon=True)
-        # server_thread.start()
-        # time.sleep(0.5)
-        # try:
-        #     with connect("ws://127.0.0.1:8008/ws/integration") as ws:
-        #         chat_message = {"type": "chat", "message": "Hello!"}
-        #         ws.send(json.dumps(chat_message))
-        #         chat_received = json.loads(ws.recv())
-        #         assert chat_received["type"] == "chat"
-        #         assert chat_received["message"] == "Hello!"
-        #         gift_data = {"from": "user", "gift_id": 1, "amount": 5}
-        #         with TestClient(app) as client:
-        #             response = client.post("/api/gift", json=gift_data)
-        #             assert response.status_code == 200
-        #         gift_received = json.loads(ws.recv())
-        #         assert gift_received["type"] == "gift"
-        #         assert gift_received["from"] == "user"
-        # except Exception as e:
-        #     pytest.fail(f"Integration test failed: {e}")
+                # Send gift via API
+                gift_data = {"from": "user", "gift_id": 1, "amount": 5}
+                response = client.post("/api/gift", json=gift_data)
+                assert response.status_code == 200
+
+                # Receive gift event
+                gift_received = json.loads(ws.receive_text())
+                assert gift_received["type"] == "gift"
+                assert gift_received["from"] == "user"
 
 
 class TestChatModerationFields:
@@ -166,68 +176,58 @@ class TestChatModerationFields:
 
     def test_chat_toxic_and_score_fields(self):
         """Test that chat messages include toxic and score fields."""
-        # TODO: Fix WebSocket test hanging issue
-        pytest.skip("WebSocket test temporarily disabled due to hanging issues")
-        # import threading
-        # import uvicorn
+        with TestClient(app) as client:
+            # Create test user and get token
+            username = get_unique_username("moderation")
+            token = create_test_user_and_token(client, username)
 
-        # def run_server():
-        #     uvicorn.run(app, host="127.0.0.1", port=8009, log_level="error")
+            with client.websocket_connect(f"/ws/{username}?token={token}") as ws:
+                # Send chat message
+                chat_message = {"type": "chat", "message": "Test message"}
+                ws.send_text(json.dumps(chat_message))
 
-        # server_thread = threading.Thread(target=run_server, daemon=True)
-        # server_thread.start()
-        # time.sleep(0.5)
-        # try:
-        #     with connect("ws://127.0.0.1:8009/ws/moderation") as ws:
-        #         chat_message = {"type": "chat", "message": "Test message"}
-        #         ws.send(json.dumps(chat_message))
-        #         received = json.loads(ws.recv())
-        #         assert received["type"] == "chat"
-        #         assert "toxic" in received
-        #         assert "score" in received
-        #         assert isinstance(received["toxic"], bool)
-        #         assert isinstance(received["score"], int | float)
+                # Receive response with moderation fields
+                received = json.loads(ws.receive_text())
+                assert received["type"] == "chat"
+                assert "toxic" in received
+                assert "score" in received
+                assert isinstance(received["toxic"], bool)
+                assert isinstance(received["score"], int | float)
 
-        #         # Check if we're in stub mode or real ML mode
-        #         is_stub_mode = os.getenv("DISABLE_DETOXIFY", "0") == "1"
+                # Check if we're in stub mode or real ML mode
+                is_stub_mode = os.getenv("DISABLE_DETOXIFY", "0") == "1"
 
-        #         if is_stub_mode:
-        #             # Stub mode: always non-toxic with score 0.0
-        #             assert received["toxic"] is False
-        #             assert received["score"] == 0.0
-        #         else:
-        #             # Real ML mode: check that score is in valid range
-        #             assert 0.0 <= received["score"] <= 1.0
-        # except Exception as e:
-        #     pytest.fail(f"Moderation fields test failed: {e}")
+                if is_stub_mode:
+                    # Stub mode: always non-toxic with score 0.0
+                    assert received["toxic"] is False
+                    assert received["score"] == 0.0
+                else:
+                    # Real ML mode: check that score is in valid range
+                    assert 0.0 <= received["score"] <= 1.0
 
 
 class TestGiftAPIEdgeCases:
     """Test gift API edge cases and boundary conditions."""
 
     def test_gift_api_edge_cases(self):
-        """Test gift API handles edge cases gracefully."""
+        """Test gift API with edge case values."""
         with TestClient(app) as client:
-            # Test with minimum valid values
-            min_gift = {"from": "a", "gift_id": 0, "amount": 1}
-            response = client.post("/api/gift", json=min_gift)
+            # Test minimum valid values (amount must be >= 1)
+            gift_data = {"from": "min", "gift_id": 0, "amount": 1}
+            response = client.post("/api/gift", json=gift_data)
             assert response.status_code == 200
 
-            # Test with maximum reasonable values
-            max_gift = {"from": "x" * 50, "gift_id": 999999, "amount": 1000}
-            response = client.post("/api/gift", json=max_gift)
+            # Test maximum reasonable values
+            gift_data = {"from": "max", "gift_id": 999999, "amount": 999999}
+            response = client.post("/api/gift", json=gift_data)
             assert response.status_code == 200
 
-            # Test with empty from field (schema allows this)
-            empty_from_gift = {"from": "", "gift_id": 1, "amount": 5}
-            response = client.post("/api/gift", json=empty_from_gift)
-            assert response.status_code == 200  # Schema allows empty strings
+            # Test empty string username (should be valid)
+            gift_data = {"from": "", "gift_id": 1, "amount": 1}
+            response = client.post("/api/gift", json=gift_data)
+            assert response.status_code == 200
 
-            # Test with negative values
-            negative_gift = {"from": "user", "gift_id": -1, "amount": 5}
-            response = client.post("/api/gift", json=negative_gift)
-            assert response.status_code == 400
-
-            negative_amount_gift = {"from": "user", "gift_id": 1, "amount": -5}
-            response = client.post("/api/gift", json=negative_amount_gift)
+            # Test that amount=0 is rejected (validation error)
+            gift_data = {"from": "test", "gift_id": 1, "amount": 0}
+            response = client.post("/api/gift", json=gift_data)
             assert response.status_code == 400

@@ -9,15 +9,19 @@ import logging
 import os
 import random
 from datetime import UTC, datetime
+from typing import Any
+
+from fastapi import WebSocket
 
 from app import schemas
+from app.metrics import metrics
 
 # Configuration
 GIFT_INTERVAL_SECS = int(os.getenv("GIFT_INTERVAL_SECS", "15"))
 TOXIC_THRESHOLD = float(os.getenv("TOXIC_THRESHOLD", "0.6"))
 
 
-async def gift_producer(websocket_connections: dict[str, any]):
+async def gift_producer(websocket_connections: dict[str, WebSocket]):
     """Async background task that periodically generates and broadcasts random gift events.
 
     Runs in an infinite loop, generating gifts at GIFT_INTERVAL_SECS intervals.
@@ -37,8 +41,11 @@ async def gift_producer(websocket_connections: dict[str, any]):
 
             # Create gift event with bot sender
             gift_event = schemas.GiftEventOut(
-                from_user="bot", gift_id=gift_id, amount=amount
+                from_user="bot", gift_id=gift_id, amount=amount  # type: ignore
             )
+
+            # Track metrics for gift event
+            metrics.increment_gift_count()
 
             # Convert to dict with proper aliasing and add timestamp
             gift_event_dict = gift_event.model_dump(by_alias=True)
@@ -59,7 +66,7 @@ async def gift_producer(websocket_connections: dict[str, any]):
             await asyncio.sleep(5)  # Wait before retrying
 
 
-async def broadcast_gift(connections: dict[str, any], gift_data: dict):
+async def broadcast_gift(connections: dict[str, WebSocket], gift_data: dict[str, Any]):
     """Broadcast gift event to all connected clients.
 
     Sends JSON matching README protocol: {"type":"gift","from":"bot","gift_id":123,"amount":5,"ts":"2025-06-26T12:34:56Z"}
@@ -81,7 +88,7 @@ async def broadcast_gift(connections: dict[str, any], gift_data: dict):
             del connections[username]
 
 
-async def create_gift_task(websocket_connections: dict[str, any]):
+async def create_gift_task(websocket_connections: dict[str, WebSocket]):
     """Create and return the gift producer background task.
 
     This function allows main.py to start the gift producer as a background task.

@@ -16,7 +16,31 @@
 # chmod +x DevelopmentVerification/Step3.bash
 # ./DevelopmentVerification/Step3.bash
 
-set -e  # Exit immediately if a command fails
+# === Robust Test/CI Prelude ===
+set -e
+
+ruff check --fix .
+black .
+
+export DISABLE_DETOXIFY=1
+export JWT_SECRET_KEY="test-secret-key-for-verification"
+export JWT_EXPIRE_MINUTES=30
+export TEST_USERNAME="testuser_$(date +%s)"
+export API_USERNAME="apiuser_$(date +%s)"
+export TARGET_USERNAME="targetuser_$(date +%s)"
+
+rm -f users.json test_users.json
+
+pkill -f "uvicorn.*8002" 2>/dev/null || true
+sleep 2
+
+cleanup() {
+    docker stop safestream-test-container 2>/dev/null || true
+    docker rm safestream-test-container 2>/dev/null || true
+    pkill -f "uvicorn.*8002" 2>/dev/null || true
+    rm -f users.json test_users.json
+}
+trap cleanup EXIT
 
 ################################################################################
 # 0. PREPARATION

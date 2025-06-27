@@ -49,5 +49,37 @@ class GiftEventOut(BaseModel):
     amount: int = Field(..., description="Quantity of gifts sent", ge=1)
 
 
+# Authentication schemas
+class UserLogin(BaseModel):
+    """Schema for user login requests."""
+
+    username: str = Field(..., description="Username")
+    password: str = Field(..., description="Password")
+
+
+class UserRegister(BaseModel):
+    """Schema for user registration requests."""
+
+    username: str = Field(..., description="Username")
+    password: str = Field(..., description="Password")
+    email: str | None = Field(None, description="Email address")
+
+
+class AuthResponse(BaseModel):
+    """Schema for authentication responses."""
+
+    access_token: str = Field(..., description="JWT access token")
+    token_type: str = Field(default="bearer", description="Token type")
+    username: str = Field(..., description="Authenticated username")
+
+
+class UserInfo(BaseModel):
+    """Schema for user information."""
+
+    username: str = Field(..., description="Username")
+    email: str | None = Field(None, description="Email address")
+    disabled: bool = Field(default=False, description="Whether user is disabled")
+
+
 # TODO(stage-6): Add database models for persistence
 # TODO(stage-6): Add logging schemas for JSONL output

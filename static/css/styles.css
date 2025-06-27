@@ -46,16 +46,17 @@ body {
     bottom: 80px;
     left: 10px;
     width: calc(100% - 80px);
-    max-height: 40vh;
+    height: 40vh;
     z-index: 10;
     pointer-events: none;
+    overflow: hidden;
 }
 
 .chat-messages {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 100%;
+    height: 100%;
     overflow-y: auto;
     padding: 10px;
     pointer-events: auto;
@@ -68,6 +69,8 @@ body {
     padding: 8px 12px;
     max-width: 80%;
     word-wrap: break-word;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     animation: chat-slide-in 0.3s ease-out;
     position: relative;
     backdrop-filter: blur(10px);
@@ -209,40 +212,89 @@ body {
     cursor: not-allowed;
 }
 
-/* Gift Badge */
+/* Gift Badge - TikTok LIVE Style */
 .gift-badge {
     position: absolute;
-    background: linear-gradient(45deg, #FF4D4D, #FF6B6B);
+    background: linear-gradient(45deg, #FF1493, #FF69B4);
     color: white;
-    padding: 8px 12px;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    animation: gift-float-up 3s ease-out forwards;
-    z-index: 5;
-    box-shadow: 0 4px 12px rgba(255, 77, 77, 0.3);
+    padding: 10px 16px;
+    border-radius: 25px;
+    font-weight: 700;
+    font-size: 1rem;
+    animation: gift-float-up 4s ease-out forwards;
+    z-index: 15;
+    box-shadow: 
+        0 4px 20px rgba(255, 20, 147, 0.4),
+        0 0 30px rgba(255, 105, 180, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+    transform-origin: center bottom;
 }
 
 @keyframes gift-float-up {
     0% {
         opacity: 0;
-        transform: translateY(100vh) scale(0.8);
+        transform: translateY(100vh) scale(0.6) rotate(-5deg);
     }
-    20% {
+    15% {
         opacity: 1;
-        transform: translateY(80vh) scale(1);
+        transform: translateY(85vh) scale(1.1) rotate(2deg);
     }
-    80% {
+    30% {
         opacity: 1;
-        transform: translateY(20vh) scale(1);
+        transform: translateY(70vh) scale(1) rotate(0deg);
+    }
+    70% {
+        opacity: 1;
+        transform: translateY(30vh) scale(1) rotate(0deg);
+    }
+    85% {
+        opacity: 0.8;
+        transform: translateY(15vh) scale(0.9) rotate(-2deg);
     }
     100% {
         opacity: 0;
-        transform: translateY(-20vh) scale(0.8);
+        transform: translateY(-10vh) scale(0.7) rotate(-5deg);
     }
 }
 
-/* Username Modal */
+/* Gift badge glow effect */
+.gift-badge::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #FF1493, #FF69B4, #FF1493);
+    border-radius: 27px;
+    z-index: -1;
+    opacity: 0.6;
+    animation: gift-glow 4s ease-out forwards;
+}
+
+@keyframes gift-glow {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    20% {
+        opacity: 0.8;
+        transform: scale(1.1);
+    }
+    80% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+}
+
+/* Modal */
 .modal {
     position: fixed;
     top: 0;
@@ -253,22 +305,22 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 100;
+    z-index: 1000;
     backdrop-filter: blur(5px);
 }
 
 .modal-content {
-    background: rgba(30, 30, 30, 0.95);
-    padding: 30px;
+    background: rgba(20, 20, 20, 0.95);
     border-radius: 15px;
-    text-align: center;
-    max-width: 300px;
+    padding: 30px;
     width: 90%;
+    max-width: 400px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
 }
 
 .modal-content h2 {
+    text-align: center;
     margin-bottom: 20px;
     color: #fff;
     font-size: 1.5rem;
@@ -279,11 +331,12 @@ body {
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 8px;
-    padding: 12px;
+    padding: 12px 15px;
     color: #fff;
     font-size: 1rem;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     outline: none;
+    transition: border-color 0.2s;
 }
 
 .modal-content input:focus {
@@ -291,24 +344,79 @@ body {
 }
 
 .modal-content button {
+    width: 100%;
     background: #FF4D4D;
     color: white;
     border: none;
     border-radius: 8px;
-    padding: 12px 24px;
+    padding: 12px;
     font-weight: 600;
-    cursor: pointer;
     font-size: 1rem;
-    transition: background 0.2s;
+    cursor: pointer;
+    transition: background-color 0.2s;
 }
 
 .modal-content button:hover {
     background: #ff3333;
 }
 
-/* Hide modal when connected */
 .modal.hidden {
     display: none;
+}
+
+/* Authentication Styles */
+.auth-tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px;
+}
+
+.tab-button {
+    flex: 1;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.tab-button.active {
+    background: #FF4D4D;
+    color: white;
+}
+
+.tab-button:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.auth-form {
+    transition: opacity 0.3s ease;
+}
+
+.auth-form.hidden {
+    display: none;
+}
+
+.auth-error {
+    color: #FF4D4D;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 10px;
+    min-height: 20px;
+}
+
+.auth-success {
+    color: #4CAF50;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 10px;
+    min-height: 20px;
 }
 
 /* Mobile Optimizations */
@@ -350,4 +458,21 @@ body {
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.5);
+}
+
+/* Live Metrics Badge */
+#live-metrics {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 1000;
+    background: #ff0050;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(255, 0, 80, 0.3);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 } 
