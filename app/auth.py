@@ -5,6 +5,7 @@ Supports login, registration, and protected access to chat and API features.
 """
 
 import json
+import logging
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -97,16 +98,60 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
+async def get_user_from_db(username: str) -> UserInDB | None:
+    """Get user from database first, fallback to JSON."""
+    try:
+        from app.db import async_session
+        from app.services import database as db_service
+
+        async with async_session() as session:
+            db_user = await db_service.get_user_by_username(session, username)
+            if db_user:
+                return UserInDB(
+                    username=db_user.username,
+                    email=db_user.email,
+                    disabled=not db_user.is_active,
+                    hashed_password=db_user.hashed_password,
+                )
+    except Exception as e:
+        logging.warning(f"Database user lookup failed, using JSON fallback: {e}")
+
+    # Fallback to JSON file
+    return get_user(username)
+
+
 def get_user(username: str, users_file: Path = USERS_FILE) -> UserInDB | None:
-    """Get user by username."""
+    """Get user by username from JSON file (fallback method)."""
     users = load_users(users_file)
     return users.get(username)
+
+
+async def authenticate_user_from_db(username: str, password: str) -> UserInDB | None:
+    """Authenticate user from database first, fallback to JSON."""
+    try:
+        from app.db import async_session
+        from app.services import database as db_service
+
+        async with async_session() as session:
+            db_user = await db_service.authenticate_user(session, username, password)
+            if db_user:
+                return UserInDB(
+                    username=db_user.username,
+                    email=db_user.email,
+                    disabled=not db_user.is_active,
+                    hashed_password=db_user.hashed_password,
+                )
+    except Exception as e:
+        logging.warning(f"Database authentication failed, using JSON fallback: {e}")
+
+    # Fallback to JSON file
+    return authenticate_user(username, password)
 
 
 def authenticate_user(
     username: str, password: str, users_file: Path = USERS_FILE
 ) -> UserInDB | None:
-    """Authenticate user with username and password."""
+    """Authenticate user with username and password from JSON file (fallback method)."""
     user = get_user(username, users_file)
     if not user:
         return None
@@ -148,7 +193,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     if token_data.username is None:
         raise credentials_exception
 
-    user = get_user(username=token_data.username)
+    # Try database first, fallback to JSON
+    user = await get_user_from_db(username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
@@ -163,13 +209,53 @@ async def get_current_active_user(
     return current_user
 
 
+async def create_user_in_db(
+    username: str,
+    password: str,
+    email: str | None = None,
+) -> UserInDB:
+    """Create a new user in database first, fallback to JSON."""
+    try:
+        from app.db import async_session
+        from app.services import database as db_service
+
+        async with async_session() as session:
+            # Check if user exists in database
+            existing_user = await db_service.get_user_by_username(session, username)
+            if existing_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username already registered",
+                )
+
+            # Create user in database
+            hashed_password = get_password_hash(password)
+            db_user = await db_service.create_user(
+                session, username, email, hashed_password
+            )
+
+            return UserInDB(
+                username=db_user.username,
+                email=db_user.email,
+                disabled=not db_user.is_active,
+                hashed_password=db_user.hashed_password,
+            )
+    except HTTPException:
+        # Re-raise HTTP exceptions (like username already exists)
+        raise
+    except Exception as e:
+        logging.warning(f"Database user creation failed, using JSON fallback: {e}")
+        # Fallback to JSON file
+        return create_user(username, password, email)
+
+
 def create_user(
     username: str,
     password: str,
     email: str | None = None,
     users_file: Path = USERS_FILE,
 ) -> UserInDB:
-    """Create a new user."""
+    """Create a new user in JSON file (fallback method)."""
     users = load_users(users_file)
 
     if username in users:
@@ -186,8 +272,20 @@ def create_user(
     return user
 
 
+async def get_user_by_token_from_db(token: str) -> User | None:
+    """Get user from JWT token without dependency injection, database first."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+        return await get_user_from_db(username=username)
+    except JWTError:
+        return None
+
+
 def get_user_by_token(token: str, users_file: Path = USERS_FILE) -> User | None:
-    """Get user from JWT token without dependency injection."""
+    """Get user from JWT token without dependency injection from JSON file (fallback method)."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")

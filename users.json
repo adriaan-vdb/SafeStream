@@ -1,44 +1,14 @@
 {
-  "demo_user": {
-    "username": "demo_user",
-    "email": null,
+  "testuser_1751183611": {
+    "username": "testuser_1751183611",
+    "email": "test@example.com",
     "disabled": false,
-    "hashed_password": "$2b$12$M3Blfb.dUrKt3eIB3ehSseHpLErE3xsZLr1Wo26P1uMwnnqtVtcKi"
+    "hashed_password": "$2b$12$X6zwBZz6mq/SlDwzIa1W2OR9x54DeSXRpFQT9Y1JUuG7UGMuAanse"
   },
-  "live_chatter": {
-    "username": "live_chatter",
+  "fallback_user": {
+    "username": "fallback_user",
     "email": null,
     "disabled": false,
-    "hashed_password": "$2b$12$IBX3xS9QpLm.s850WoBZ5evuRQSvhsx/CuFqpr/7pjTDoVUNuXMdm"
-  },
-  "stream_fan": {
-    "username": "stream_fan",
-    "email": null,
-    "disabled": false,
-    "hashed_password": "$2b$12$K3EunSw9U6TX9CtRz5Prfey3w0Yqp7/jnlA9ImFvTQgP2y6eIqcBC"
-  },
-  "Adriaan": {
-    "username": "Adriaan",
-    "email": null,
-    "disabled": false,
-    "hashed_password": "$2b$12$K42SIr.D0Mara16KjXUurOcqOt7gFTKTX/7pInf9lvOP/2dihASmm"
-  },
-  "Sarah": {
-    "username": "Sarah",
-    "email": null,
-    "disabled": false,
-    "hashed_password": "$2b$12$XmwiArQgGd2TGjRvRswrSuzaErvXGXBK5PFk.kpb7YRxoyWaoZsUC"
-  },
-  "Person": {
-    "username": "Person",
-    "email": null,
-    "disabled": false,
-    "hashed_password": "$2b$12$TLGDWC15vCeYIeTnfW/TmuqXTT8O9sGkm53.mwmu.OJn3n4O.hv5K"
-  },
-  "userrr": {
-    "username": "userrr",
-    "email": null,
-    "disabled": false,
-    "hashed_password": "$2b$12$t2Dvx3mrmsjex4jNxPMJf.eYdQz/U285aH6M7.QQhmfRJ.tMVHcLq"
+    "hashed_password": "$2b$12$G8fd0vCcXCztPXm1gYlnG.CJxayrFLds5EQgSVGObW.ZnRAVeZjOu"
   }
 }

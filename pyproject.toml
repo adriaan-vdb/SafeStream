@@ -30,8 +30,12 @@ dependencies = [
     "passlib[bcrypt]",
     "python-multipart",
     "bcrypt<4.1.0",  # Pin to compatible version
+    "sqlalchemy>=2.0,<3.0",  # Database ORM (Stage 11)
+    "alembic>=1.12,<2.0",  # Database migrations (Stage 11)
+    "aiosqlite>=0.19,<1.0",  # SQLite async driver (Stage 11)
+    "pydantic-settings>=2.0,<3.0",  # Settings management (Stage 11)
+    "greenlet>=2.0,<4.0",  # Required for SQLAlchemy async (Stage 11)
     # TODO(stage-7): "streamlit",  # Moderator dashboard
-    # TODO(stage-5): "sqlalchemy",  # Database ORM
     # TODO(stage-8): "locust",  # Load testing
     # TODO(stage-5): "pydantic",  # Data validation (included with FastAPI)
 ]
