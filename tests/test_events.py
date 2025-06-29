@@ -18,7 +18,7 @@ class TestGiftSimulation:
         # Create mock WebSocket connections
         mock_ws1 = AsyncMock()
         mock_ws2 = AsyncMock()
-        connections = {"user1": mock_ws1, "user2": mock_ws2}
+        connections = {mock_ws1, mock_ws2}
 
         # Test gift data
         gift_data = {
@@ -44,7 +44,7 @@ class TestGiftSimulation:
         mock_ws2 = AsyncMock()
         mock_ws2.send_text.side_effect = Exception("Connection lost")
 
-        connections = {"user1": mock_ws1, "user2": mock_ws2}
+        connections = {mock_ws1, mock_ws2}
 
         # Test gift data
         gift_data = {
@@ -58,17 +58,17 @@ class TestGiftSimulation:
         # Call broadcast function
         await events.broadcast_gift(connections, gift_data)
 
-        # Verify user2 was removed from connections
-        assert "user1" in connections
-        assert "user2" not in connections
+        # Verify mock_ws2 was removed from connections
+        assert mock_ws1 in connections
+        assert mock_ws2 not in connections  # Should be removed after failed send
 
-        # Verify only user1 received the message
+        # Verify only mock_ws1 received the message
         mock_ws1.send_text.assert_called_once_with(json.dumps(gift_data))
 
     @pytest.mark.asyncio
     async def test_create_gift_task_returns_task(self):
         """Test that create_gift_task returns an asyncio task."""
-        connections = {}
+        connections = set()
 
         task = await events.create_gift_task(connections)
 

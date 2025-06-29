@@ -931,6 +931,29 @@ Zero File Dependencies • No Fallback Paths • 100% Database-Backed
 # Status: ✅ PASS - Documentation consistent
 ```
 
+---
+
+## Post-Migration Test Fix ✅
+
+**Objective**: Resolve test failures after WebSocket connection refactoring.
+
+### Issue Identified
+After refactoring WebSocket connections from `dict[str, WebSocket]` to `set[WebSocket]`, test failures occurred:
+- `broadcast_gift()` function expected `set[WebSocket]` but tests used `dict` format
+- Test mock connections used string keys instead of WebSocket objects
+- AttributeError: `'dict' object has no attribute 'discard'`
+
+### Fix Applied
+**Tests Updated**:
+- `tests/test_events.py`: Changed `{"user1": mock_ws1, "user2": mock_ws2}` → `{mock_ws1, mock_ws2}`
+- `tests/test_random_gift.py`: Updated all connection dictionaries to sets
+- Fixed deprecation warnings in `database.py`: `datetime.utcnow()` → `datetime.now(UTC)`
+
+**Verification Results**:
+- ✅ All 4 previously failing tests now pass
+- ✅ Full test suite: 95 passed, 7 skipped
+- ✅ Zero test failures in database-only mode
+
 ### Final Status
 
 **Phase F achieves the ultimate goal**: SafeStream is now **100% database-native** with:

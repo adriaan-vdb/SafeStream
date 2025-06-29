@@ -36,7 +36,7 @@ class TestRandomGiftProducer:
 
                 # Test broadcasting
                 mock_websocket = AsyncMock()
-                connections = {"testuser": mock_websocket}
+                connections = {mock_websocket}  # Use set instead of dict
 
                 await broadcast_gift(connections, gift_event_dict)
 
@@ -117,7 +117,7 @@ class TestRandomGiftProducer:
 
         mock_websocket1 = AsyncMock()
         mock_websocket2 = AsyncMock()
-        connections = {"user1": mock_websocket1, "user2": mock_websocket2}
+        connections = {mock_websocket1, mock_websocket2}  # Use set instead of dict
         gift_event = GiftEventOut(from_user="bot", gift_id=123, amount=3)
         gift_data = gift_event.model_dump(by_alias=True)
         gift_data["ts"] = "2025-06-26T12:34:56Z"
@@ -149,7 +149,7 @@ class TestRandomGiftProducer:
                         importlib.reload(events)
 
                         mock_websocket = AsyncMock()
-                        connections = {"testuser": mock_websocket}
+                        connections = {mock_websocket}  # Use set instead of dict
 
                         # Start the task
                         task = asyncio.create_task(events.gift_producer(connections))

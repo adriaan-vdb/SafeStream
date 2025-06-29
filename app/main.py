@@ -197,14 +197,21 @@ def create_app(testing: bool = False) -> FastAPI:
             ) from e
 
     @app.post("/auth/login", response_model=schemas.AuthResponse)
-    async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-        """Authenticate user and return JWT token.
+    async def login(
+        request: Request,
+        form_data: OAuth2PasswordRequestForm = Depends(),
+    ):
+        """Authenticate user and return JWT token with session management.
 
         Args:
             form_data: OAuth2 form data with username and password
+            request: HTTP request for extracting user agent and IP
 
         Returns:
             JWT token for authenticated user
+
+        Raises:
+            HTTPException: If credentials invalid or user already logged in
         """
         user = await authenticate_user(form_data.username, form_data.password)
         if not user:
@@ -214,10 +221,77 @@ def create_app(testing: bool = False) -> FastAPI:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        access_token = create_access_token(data={"sub": user.username})
+        # Check if user already has an active session
+        async with async_session() as session:
+            # Get the actual database user model (with id field)
+            db_user = await db_service.get_user_by_username(session, user.username)
+            if not db_user:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="User not found in database",
+                )
+
+            existing_session = await db_service.get_active_session_by_user(
+                session, db_user.id
+            )
+            if existing_session:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="User is already logged in from another session. Please logout from other devices first.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Create new session
+            user_agent = request.headers.get("user-agent")
+            ip_address = (
+                getattr(request.client, "host", None) if request.client else None
+            )
+
+            user_session = await db_service.create_user_session(
+                session,
+                user_id=db_user.id,
+                session_duration_hours=24,  # 24 hour session
+                user_agent=user_agent,
+                ip_address=ip_address,
+            )
+
+        # Create JWT token with session info
+        access_token = create_access_token(
+            data={"sub": user.username, "session_token": user_session.session_token}
+        )
+
+        logging.info(f"User {user.username} logged in successfully from {ip_address}")
+
         return schemas.AuthResponse(
             access_token=access_token, token_type="bearer", username=user.username
         )
+
+    @app.post("/auth/logout")
+    async def logout(current_user: User = Depends(get_current_active_user)):
+        """Logout user and invalidate their session.
+
+        Args:
+            current_user: Current authenticated user from JWT token
+
+        Returns:
+            Success message
+        """
+        async with async_session() as session:
+            # Get the actual database user model (with id field)
+            db_user = await db_service.get_user_by_username(
+                session, current_user.username
+            )
+            if not db_user:
+                return {"message": "User not found in database"}
+
+            # Invalidate all sessions for the user (for now - could be more specific with session token)
+            success = await db_service.invalidate_user_session(session, db_user.id)
+
+        if success:
+            logging.info(f"User {current_user.username} logged out successfully")
+            return {"message": "Successfully logged out"}
+        else:
+            return {"message": "No active session found"}
 
     @app.get("/auth/me", response_model=schemas.UserInfo)
     async def get_current_user_info(
@@ -368,6 +442,16 @@ def create_app(testing: bool = False) -> FastAPI:
             # Clean up on disconnect
             connected.discard(websocket)
             websocket_usernames.pop(websocket, None)
+
+            # Clean up user session when disconnecting
+            async with async_session() as db_session:
+                db_user = await db_service.get_user_by_username(db_session, username)
+                if db_user:
+                    await db_service.invalidate_user_session(db_session, db_user.id)
+                    logging.info(
+                        f"Invalidated session for user {username} on disconnect"
+                    )
+
             logging.info(
                 f"User {username} disconnected. Total connections: {len(connected)}"
             )
@@ -376,6 +460,13 @@ def create_app(testing: bool = False) -> FastAPI:
             logging.error(f"WebSocket error for {username}: {e}")
             connected.discard(websocket)
             websocket_usernames.pop(websocket, None)
+
+            # Clean up user session on error
+            async with async_session() as db_session:
+                db_user = await db_service.get_user_by_username(db_session, username)
+                if db_user:
+                    await db_service.invalidate_user_session(db_session, db_user.id)
+                    logging.info(f"Invalidated session for user {username} on error")
 
     @app.post("/api/gift")
     async def gift_endpoint(gift_data: dict):
@@ -453,7 +544,7 @@ def create_app(testing: bool = False) -> FastAPI:
             f"Admin {current_user.username} kicked user {target_username}. Closed {kick_count} connections."
         )
 
-        # Log the kick action to database
+        # Log the kick action to database and invalidate user session
         async with async_session() as session:
             # Get admin user from database
             admin_user = await db_service.get_user_by_username(
@@ -470,6 +561,16 @@ def create_app(testing: bool = False) -> FastAPI:
                 session, target_username
             )
             target_user_id = target_user.id if target_user else None
+
+            # Invalidate target user's session
+            if target_user:
+                session_invalidated = await db_service.invalidate_user_session(
+                    session, target_user.id
+                )
+                if session_invalidated:
+                    logging.info(
+                        f"Invalidated session for kicked user {target_username}"
+                    )
 
             # Log admin action
             await db_service.log_admin_action(
@@ -562,7 +663,7 @@ app = create_app(testing=False)
 
 
 async def cleanup_stale_connections():
-    """Periodically clean up stale WebSocket connections."""
+    """Periodically clean up stale WebSocket connections and expired sessions."""
     while True:
         try:
             await asyncio.sleep(CLEANUP_INTERVAL)
@@ -581,6 +682,12 @@ async def cleanup_stale_connections():
                 connected.discard(websocket)
                 username = websocket_usernames.pop(websocket, None)
                 logging.info(f"Removed stale connection: {username or 'unknown'}")
+
+            # Clean up expired sessions
+            async with async_session() as session:
+                expired_count = await db_service.cleanup_expired_sessions(session)
+                if expired_count > 0:
+                    logging.info(f"Cleaned up {expired_count} expired sessions")
 
         except asyncio.CancelledError:
             break

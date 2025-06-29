@@ -43,7 +43,13 @@ async def close_db() -> None:
 
 
 # Import models after Base is defined to avoid circular imports
-from app.db.models import AdminAction, GiftEvent, Message, User  # noqa: E402
+from app.db.models import (  # noqa: E402
+    AdminAction,
+    GiftEvent,
+    Message,
+    User,
+    UserSession,
+)
 
 # Export public API
 __all__ = [
@@ -57,4 +63,5 @@ __all__ = [
     "Message",
     "GiftEvent",
     "AdminAction",
+    "UserSession",
 ]

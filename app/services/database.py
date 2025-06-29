@@ -5,10 +5,13 @@ This service layer encapsulates all database interactions for users, messages,
 gifts, and admin actions with proper type safety and async patterns.
 """
 
+import secrets
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import AdminAction, GiftEvent, Message, User
+from app.db.models import AdminAction, GiftEvent, Message, User, UserSession
 
 # ============================================================================
 # USER OPERATIONS
@@ -270,3 +273,185 @@ async def get_toxic_message_count(session: AsyncSession, user_id: int) -> int:
     )
     result = await session.execute(stmt)
     return len(list(result.scalars().all()))
+
+
+# ============================================================================
+# SESSION MANAGEMENT
+# ============================================================================
+
+
+async def create_user_session(
+    session: AsyncSession,
+    user_id: int,
+    session_duration_hours: int = 24,
+    user_agent: str | None = None,
+    ip_address: str | None = None,
+) -> UserSession:
+    """Create a new user session.
+
+    Args:
+        session: Async SQLAlchemy session
+        user_id: ID of the user
+        session_duration_hours: How long the session should last in hours
+        user_agent: User agent string from request headers
+        ip_address: IP address of the client
+
+    Returns:
+        Created UserSession instance
+    """
+    # Generate secure session token
+    session_token = secrets.token_urlsafe(32)
+
+    # Calculate expiry time
+    expires_at = datetime.now(UTC) + timedelta(hours=session_duration_hours)
+
+    user_session = UserSession(
+        user_id=user_id,
+        session_token=session_token,
+        is_active=True,
+        user_agent=user_agent,
+        ip_address=ip_address,
+        expires_at=expires_at,
+    )
+
+    session.add(user_session)
+    await session.commit()
+    await session.refresh(user_session)
+    return user_session
+
+
+async def get_active_session_by_user(
+    session: AsyncSession, user_id: int
+) -> UserSession | None:
+    """Get active session for a user.
+
+    Args:
+        session: Async SQLAlchemy session
+        user_id: ID of the user
+
+    Returns:
+        Active UserSession if found, None otherwise
+    """
+    stmt = select(UserSession).where(
+        UserSession.user_id == user_id,
+        UserSession.is_active == True,  # noqa: E712
+        UserSession.expires_at > datetime.now(UTC),
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def get_session_by_token(
+    session: AsyncSession, session_token: str
+) -> UserSession | None:
+    """Get session by token.
+
+    Args:
+        session: Async SQLAlchemy session
+        session_token: Session token to look up
+
+    Returns:
+        UserSession if found and valid, None otherwise
+    """
+    stmt = select(UserSession).where(
+        UserSession.session_token == session_token,
+        UserSession.is_active == True,  # noqa: E712
+        UserSession.expires_at > datetime.now(UTC),
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def invalidate_user_session(
+    session: AsyncSession, user_id: int, session_token: str | None = None
+) -> bool:
+    """Invalidate user session(s).
+
+    Args:
+        session: Async SQLAlchemy session
+        user_id: ID of the user
+        session_token: Specific session token to invalidate (optional)
+                      If None, invalidates all sessions for the user
+
+    Returns:
+        True if session(s) were invalidated, False otherwise
+    """
+    if session_token:
+        # Invalidate specific session
+        stmt = select(UserSession).where(
+            UserSession.user_id == user_id,
+            UserSession.session_token == session_token,
+            UserSession.is_active == True,  # noqa: E712
+        )
+    else:
+        # Invalidate all active sessions for user
+        stmt = select(UserSession).where(
+            UserSession.user_id == user_id,
+            UserSession.is_active == True,  # noqa: E712
+        )
+
+    result = await session.execute(stmt)
+    sessions_to_invalidate = result.scalars().all()
+
+    if not sessions_to_invalidate:
+        return False
+
+    # Mark sessions as inactive
+    for user_session in sessions_to_invalidate:
+        user_session.is_active = False
+
+    await session.commit()
+    return True
+
+
+async def update_session_activity(session: AsyncSession, session_token: str) -> bool:
+    """Update session last activity timestamp.
+
+    Args:
+        session: Async SQLAlchemy session
+        session_token: Session token to update
+
+    Returns:
+        True if session was updated, False if not found
+    """
+    stmt = select(UserSession).where(
+        UserSession.session_token == session_token,
+        UserSession.is_active == True,  # noqa: E712
+    )
+    result = await session.execute(stmt)
+    user_session = result.scalar_one_or_none()
+
+    if not user_session:
+        return False
+
+    user_session.last_activity = datetime.now(UTC)
+    await session.commit()
+    return True
+
+
+async def cleanup_expired_sessions(session: AsyncSession) -> int:
+    """Clean up expired sessions.
+
+    Args:
+        session: Async SQLAlchemy session
+
+    Returns:
+        Number of sessions cleaned up
+    """
+    # Get expired active sessions
+    stmt = select(UserSession).where(
+        UserSession.is_active == True,  # noqa: E712
+        UserSession.expires_at <= datetime.now(UTC),
+    )
+    result = await session.execute(stmt)
+    expired_sessions = result.scalars().all()
+
+    if not expired_sessions:
+        return 0
+
+    # Mark as inactive
+    for user_session in expired_sessions:
+        user_session.is_active = False
+
+    await session.commit()
+    return len(expired_sessions)

@@ -55,6 +55,9 @@ class User(Base):
         foreign_keys="AdminAction.target_user_id",
         back_populates="target_user",
     )
+    sessions: Mapped[list["UserSession"]] = relationship(
+        "UserSession", back_populates="user", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return (
@@ -188,3 +191,49 @@ class AdminAction(Base):
 
     def __repr__(self) -> str:
         return f"<AdminAction(id={self.id}, admin_user_id={self.admin_user_id}, action='{self.action}', target_user_id={self.target_user_id})>"
+
+
+class UserSession(Base):
+    """User session model for tracking active logins and preventing multiple sessions."""
+
+    __tablename__ = "user_sessions"
+
+    # Primary key
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    # User relationship
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), nullable=False, index=True
+    )
+
+    # Session details
+    session_token: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False, index=True)
+
+    # Session metadata
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(
+        String(45), nullable=True
+    )  # IPv6 compatible
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(default=func.now(), nullable=False)
+    last_activity: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now(), nullable=False, index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(nullable=False, index=True)
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="sessions")
+
+    # Composite indexes for session management
+    __table_args__ = (
+        Index("idx_user_sessions_user_active", "user_id", "is_active"),
+        Index("idx_user_sessions_token_active", "session_token", "is_active"),
+        Index("idx_user_sessions_expires", "expires_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<UserSession(id={self.id}, user_id={self.user_id}, active={self.is_active})>"
