@@ -1,4 +1,4 @@
-# SafeStream — Enterprise‑Grade Real‑Time Chat Platform
+# SafeStream — Enterprise‑Grade Moderated Real‑Time Chat and Livestreaming Platform
 
 > **A scalable, production‑ready live‑streaming chat application with enterprise‑grade architecture.** Built with modern async Python, this TikTok‑style platform features real‑time WebSocket broadcasting, AI‑powered content moderation, JWT authentication, database persistence, and comprehensive admin tools. Engineered for high concurrency (\~500 messages/second), horizontal scalability, and production deployment with Docker, CI/CD, and automated testing.
 

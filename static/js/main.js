@@ -1,4 +1,10 @@
 // main.js - SafeStream Frontend WebSocket Client with JWT Authentication
+//
+// Session Persistence Features:
+// - Automatic token validation on page load
+// - Session restoration after page refresh/browser restart
+// - Automatic logout when tokens expire
+// - Graceful handling of authentication failures during active sessions
 
 let ws = null;
 let username = null;
@@ -7,6 +13,16 @@ let metricsInterval = null;
 
 // Track rendered message IDs to avoid duplicates
 const renderedMessageIds = new Set();
+
+// Utility function to handle authentication errors
+function handleAuthError(response) {
+    if (response.status === 401) {
+        console.log('Authentication expired during session, logging out');
+        logout();
+        return true;
+    }
+    return false;
+}
 
 function getMessageUniqueId(msg) {
     // Prefer server-provided id or timestamp
@@ -17,14 +33,43 @@ function getMessageUniqueId(msg) {
 }
 
 // Check if user is already authenticated
-function checkAuthStatus() {
+async function checkAuthStatus() {
     const token = localStorage.getItem('safestream_token');
     const savedUsername = localStorage.getItem('safestream_username');
     
     if (token && savedUsername) {
-        authToken = token;
-        username = savedUsername;
-        return true;
+        // Show loading indicator while validating
+        console.log('Validating stored authentication token...');
+        
+        // Validate token with backend before using it
+        try {
+            const response = await fetch('/auth/me', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                // Token is valid, restore session
+                authToken = token;
+                username = savedUsername;
+                console.log(`Session restored for user: ${username}`);
+                return true;
+            } else {
+                // Token is expired or invalid, clear storage
+                console.log('Stored token is invalid or expired, clearing session');
+                localStorage.removeItem('safestream_token');
+                localStorage.removeItem('safestream_username');
+                return false;
+            }
+        } catch (error) {
+            console.error('Failed to validate token:', error);
+            // Network error or other issue, assume token is invalid
+            localStorage.removeItem('safestream_token');
+            localStorage.removeItem('safestream_username');
+            return false;
+        }
     }
     return false;
 }
@@ -197,6 +242,8 @@ async function fetchMetrics() {
         if (response.ok) {
             const data = await response.json();
             updateLiveMetrics(data.viewer_count || 0, data.gift_count || 0);
+        } else if (!handleAuthError(response)) {
+            console.warn('Failed to fetch metrics:', response.status);
         }
     } catch (error) {
         console.warn('Failed to fetch metrics:', error);
@@ -349,10 +396,26 @@ function connectWS() {
         if (messageInput) messageInput.disabled = true;
         if (sendButton) sendButton.disabled = true;
         
-        if (event.code === 1008) {
+        // Handle authentication-related disconnections
+        if (event.code === 1008 || event.code === 1007) {
+            // Authentication failed or invalid token
+            console.log('Authentication failed, logging out user');
             logout();
+        } else if (event.code === 1006) {
+            // Abnormal closure - could be network or auth issue
+            // Try to validate token before reconnecting
+            setTimeout(async () => {
+                if (authToken && username && !ws) {
+                    const isStillValid = await checkAuthStatus();
+                    if (isStillValid) {
+                        connectWS();
+                    } else {
+                        logout();
+                    }
+                }
+            }, 2000);
         } else {
-            // Only reconnect if we still have auth
+            // Other disconnection reasons - try to reconnect
             setTimeout(() => {
                 if (authToken && username && !ws) {
                     connectWS();
@@ -378,7 +441,7 @@ function sendMessage() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // Prevent duplicate metrics badge creation
     let metricsBadge = document.getElementById('live-metrics');
     if (!metricsBadge) {
@@ -392,7 +455,8 @@ document.addEventListener('DOMContentLoaded', () => {
     startMetricsPolling();
     
     // Check if user is already authenticated
-    if (checkAuthStatus()) {
+    const isAuthenticated = await checkAuthStatus();
+    if (isAuthenticated) {
         connectWS();
     } else {
         showModal(true);
