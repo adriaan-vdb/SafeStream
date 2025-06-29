@@ -17,7 +17,7 @@ from app import schemas
 from app.metrics import metrics
 
 # Configuration
-GIFT_INTERVAL_SECS = int(os.getenv("GIFT_INTERVAL_SECS", "15"))
+GIFT_INTERVAL_SECS = int(os.getenv("GIFT_INTERVAL_SECS", "1"))
 TOXIC_THRESHOLD = float(os.getenv("TOXIC_THRESHOLD", "0.6"))
 
 

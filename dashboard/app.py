@@ -8,6 +8,7 @@ TODO(stage-7): Create moderator interface for chat management
 
 import glob
 import json
+import time
 from datetime import datetime
 
 import altair as alt
@@ -23,7 +24,12 @@ try:
 except ImportError:
     WATCHDOG_AVAILABLE = False
 
-LOG_GLOB = "logs/chat_*.jsonl"
+# Suppress pandas warnings
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
+
+LOG_GLOB = "logs/*.jsonl"
 METRICS_URL = "http://localhost:8000/metrics"
 PINK = "#ff0050"
 
@@ -51,9 +57,7 @@ data_source = st.sidebar.radio("Data Source", ["Log File Tail", "Metrics API Pol
 
 # --- DataFrame State ---
 if "df" not in st.session_state:
-    st.session_state.df = pd.DataFrame(
-        columns=["ts", "user", "msg", "toxic", "score", "gift", "amount"]
-    )
+    st.session_state.df = pd.DataFrame()
 
 
 # --- Helper: Parse log line ---
@@ -139,7 +143,14 @@ def update_data():
 def render_kpis(df):
     if data_source == "Log File Tail":
         viewer_count = "-"
-        gift_count = df["amount"].fillna(0).astype(int).sum() if not df.empty else 0
+        # Fix pandas warning by using a safer approach
+        if not df.empty and "amount" in df:
+            amount_series = df["amount"].dropna()
+            gift_count = (
+                int(amount_series.astype(int).sum()) if not amount_series.empty else 0
+            )
+        else:
+            gift_count = 0
         toxic_pct = (
             (df["toxic"].sum() / len(df) * 100)
             if (not df.empty and df["toxic"].notnull().any())
@@ -159,8 +170,8 @@ def render_kpis(df):
 # --- UI: Rolling Table with Filtering ---
 def render_table(df):
     st.subheader("Recent Messages")
-    filter_user = st.text_input("Filter by username", "")
-    filter_toxic = st.checkbox("Show only toxic", False)
+    filter_user = st.text_input("Filter by username", "", key="filter_user_input")
+    filter_toxic = st.checkbox("Show only toxic", False, key="filter_toxic_checkbox")
     filtered = df.copy()
     if filter_user:
         filtered = filtered[
@@ -231,9 +242,9 @@ def render_charts(df):
 # --- UI: Admin Actions ---
 def render_actions():
     st.subheader("Admin Actions")
-    username = st.text_input("Username to moderate", "")
+    username = st.text_input("Username to moderate", "", key="moderate_username_input")
     col1, col2 = st.columns(2)
-    if col1.button("Kick", use_container_width=True, key="kick"):
+    if col1.button("Kick", use_container_width=True, key="kick_button"):
         if username:
             try:
                 r = requests.post(
@@ -245,7 +256,7 @@ def render_actions():
                     st.error(f"Failed to kick {username}")
             except Exception as e:
                 st.error(f"Error: {e}")
-    if col2.button("Mute 5 min", use_container_width=True, key="mute"):
+    if col2.button("Mute 5 min", use_container_width=True, key="mute_button"):
         if username:
             try:
                 r = requests.post(
@@ -262,13 +273,29 @@ def render_actions():
 # --- Main App Loop ---
 def main():
     st.title("SafeStream Moderator Dashboard")
+
+    # Add auto-refresh control
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        auto_refresh = st.checkbox(
+            "Auto-refresh", value=True, key="auto_refresh_checkbox"
+        )
+        if st.button("Refresh Now", key="manual_refresh_button"):
+            st.rerun()
+
+    # Update data
     update_data()
+
+    # Render dashboard components
     render_kpis(st.session_state.df)
     render_table(st.session_state.df)
     render_charts(st.session_state.df)
     render_actions()
-    # Auto-refresh every 1s
-    st.rerun()
+
+    # Auto-refresh every 5 seconds if enabled
+    if auto_refresh:
+        time.sleep(5)
+        st.rerun()
 
 
 if __name__ == "__main__":

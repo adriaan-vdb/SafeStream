@@ -1,11 +1,9 @@
 // main.js - SafeStream Frontend WebSocket Client with JWT Authentication
 
 let ws = null;
-let wsConnecting = false;
 let username = null;
 let authToken = null;
 let metricsInterval = null;
-let inputWasFocused = false;
 
 // Track rendered message IDs to avoid duplicates
 const renderedMessageIds = new Set();
@@ -224,13 +222,23 @@ function setChatMessageOpacities() {
     const chatMessages = document.getElementById('chatMessages');
     const messages = Array.from(chatMessages.children);
     const total = messages.length;
-    messages.forEach((msg, i) => {
-        // index 0 is the oldest (top), last is newest (bottom)
-        const index = i;
-        // Opacity decreases as index gets lower (older)
-        const opacity = Math.max(1 - (total - 1 - index) * 0.15, 0.05);
-        msg.style.opacity = opacity;
-    });
+    
+    // Only update opacity if we have a reasonable number of messages to avoid performance issues
+    if (total > 50) {
+        // For performance, only set opacity on the last 20 messages
+        const startIndex = Math.max(0, total - 20);
+        for (let i = startIndex; i < total; i++) {
+            const msg = messages[i];
+            const opacity = Math.max(1 - (total - 1 - i) * 0.15, 0.05);
+            msg.style.opacity = opacity;
+        }
+    } else {
+        // Set opacity on all messages if count is reasonable
+        messages.forEach((msg, i) => {
+            const opacity = Math.max(1 - (total - 1 - i) * 0.15, 0.05);
+            msg.style.opacity = opacity;
+        });
+    }
 }
 
 function renderMessage(msg) {
@@ -238,6 +246,11 @@ function renderMessage(msg) {
     const uniqueId = getMessageUniqueId(msg);
     if (renderedMessageIds.has(uniqueId)) return; // Already rendered
     renderedMessageIds.add(uniqueId);
+    
+    // Store current focus to restore it if needed
+    const activeElement = document.activeElement;
+    const wasInputFocused = activeElement && activeElement.id === 'messageInput';
+    
     const div = document.createElement('div');
     div.className = 'chat-message';
     if (msg.toxic) {
@@ -246,8 +259,17 @@ function renderMessage(msg) {
     }
     div.innerHTML = `<span class=\"chat-username\">${msg.user}</span> <span class=\"chat-text\">${msg.message}</span>`;
     chatMessages.appendChild(div);
-    setChatMessageOpacities();
-    scrollChatToBottom();
+    
+    // Use requestAnimationFrame to avoid blocking the main thread
+    requestAnimationFrame(() => {
+        setChatMessageOpacities();
+        scrollChatToBottom();
+        
+        // Restore focus if it was on the input and got lost
+        if (wasInputFocused && document.activeElement !== activeElement) {
+            activeElement.focus();
+        }
+    });
 }
 
 function renderGift(gift) {
@@ -286,26 +308,24 @@ function connectWS() {
         console.error('No authentication token or username');
         return;
     }
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING || wsConnecting)) {
-        return; // Already connected or connecting
-    }
-    wsConnecting = true;
+    
+    // Close existing connection properly
     if (ws) {
+        ws.onclose = null; // Prevent reconnection attempts
         ws.close();
         ws = null;
     }
+    
     ws = new WebSocket(`ws://${location.host}/ws/${encodeURIComponent(username)}?token=${encodeURIComponent(authToken)}`);
+    
     ws.onopen = () => {
-        wsConnecting = false;
         console.log('WebSocket connected');
-        const input = document.getElementById('messageInput');
-        document.getElementById('messageInput').disabled = false;
-        document.getElementById('sendButton').disabled = false;
-        if (inputWasFocused) {
-            input.focus();
-            inputWasFocused = false;
-        }
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        if (messageInput) messageInput.disabled = false;
+        if (sendButton) sendButton.disabled = false;
     };
+    
     ws.onmessage = (event) => {
         let data;
         try {
@@ -321,25 +341,27 @@ function connectWS() {
             updateLiveMetrics(data.viewer_count || 0, data.gift_count || 0);
         }
     };
+    
     ws.onclose = (event) => {
-        wsConnecting = false;
         console.log('WebSocket disconnected:', event.code, event.reason);
-        const input = document.getElementById('messageInput');
-        inputWasFocused = (document.activeElement === input);
-        document.getElementById('messageInput').disabled = true;
-        document.getElementById('sendButton').disabled = true;
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        if (messageInput) messageInput.disabled = true;
+        if (sendButton) sendButton.disabled = true;
+        
         if (event.code === 1008) {
             logout();
         } else {
+            // Only reconnect if we still have auth
             setTimeout(() => {
-                if (authToken && username) {
+                if (authToken && username && !ws) {
                     connectWS();
                 }
             }, 2000);
         }
     };
+    
     ws.onerror = (error) => {
-        wsConnecting = false;
         console.error('WebSocket error:', error);
     };
 }
@@ -351,16 +373,20 @@ function sendMessage() {
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'chat', message: text }));
         input.value = '';
-        input.focus(); // Keep the textbox selected
+        // Use setTimeout to ensure focus happens after any DOM updates
+        setTimeout(() => input.focus(), 0);
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Create live metrics badge
-    const metricsBadge = document.createElement('div');
-    metricsBadge.id = 'live-metrics';
-    metricsBadge.textContent = '👥 0  🎁 0';
-    document.body.appendChild(metricsBadge);
+    // Prevent duplicate metrics badge creation
+    let metricsBadge = document.getElementById('live-metrics');
+    if (!metricsBadge) {
+        metricsBadge = document.createElement('div');
+        metricsBadge.id = 'live-metrics';
+        metricsBadge.textContent = '👥 0  🎁 0';
+        document.body.appendChild(metricsBadge);
+    }
     
     // Start metrics polling
     startMetricsPolling();
@@ -397,6 +423,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Disable input until connected
-    document.getElementById('messageInput').disabled = true;
-    document.getElementById('sendButton').disabled = true;
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+    if (messageInput) messageInput.disabled = true;
+    if (sendButton) sendButton.disabled = true;
 }); 

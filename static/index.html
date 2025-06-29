@@ -48,8 +48,8 @@
             <!-- Login Form -->
             <div class="auth-form" id="loginForm">
                 <h2>Login to SafeStream</h2>
-                <input type="text" id="loginUsername" placeholder="Username" maxlength="20">
-                <input type="password" id="loginPassword" placeholder="Password">
+                <input type="text" id="loginUsername" placeholder="Username" maxlength="20" list="loginUsernames" autocomplete="username" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <input type="password" id="loginPassword" placeholder="Password" list="loginPasswords" autocomplete="current-password" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <button id="loginButton">Submit</button>
                 <div class="auth-error" id="loginError"></div>
             </div>
@@ -57,15 +57,46 @@
             <!-- Register Form -->
             <div class="auth-form hidden" id="registerForm">
                 <h2>Create Account</h2>
-                <input type="text" id="registerUsername" placeholder="Username" maxlength="20">
-                <input type="email" id="registerEmail" placeholder="Email (optional)">
-                <input type="password" id="registerPassword" placeholder="Password">
-                <input type="password" id="registerPasswordConfirm" placeholder="Confirm Password">
+                <input type="text" id="registerUsername" placeholder="Username" maxlength="20" list="registerUsernames" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <input type="email" id="registerEmail" placeholder="Email (optional)" list="registerEmails" autocomplete="email" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <input type="password" id="registerPassword" placeholder="Password" list="registerPasswords" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <input type="password" id="registerPasswordConfirm" placeholder="Confirm Password" list="registerPasswords" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
                 <button id="registerButton">Submit</button>
                 <div class="auth-error" id="registerError"></div>
             </div>
         </div>
     </div>
+
+    <!-- Datalists for autofill suggestions -->
+    <datalist id="loginUsernames">
+        <option value="demo_user">
+        <option value="test_streamer">
+        <option value="chat_viewer">
+    </datalist>
+
+    <datalist id="loginPasswords">
+        <option value="demo123" label="Password for demo_user">
+        <option value="test456" label="Password for test_streamer">
+        <option value="viewer789" label="Password for chat_viewer">
+    </datalist>
+
+    <datalist id="registerUsernames">
+        <option value="demo_user">
+        <option value="test_streamer">
+        <option value="chat_viewer">
+    </datalist>
+
+    <datalist id="registerEmails">
+        <option value="demo@safestream.com" label="Email for demo_user">
+        <option value="test@example.com" label="Email for test_streamer">
+        <option value="viewer@livestream.org" label="Email for chat_viewer">
+    </datalist>
+
+    <datalist id="registerPasswords">
+        <option value="demo123" label="Password for demo_user">
+        <option value="test456" label="Password for test_streamer">
+        <option value="viewer789" label="Password for chat_viewer">
+    </datalist>
 
     <script src="/static/js/main.js"></script>
     </div>
