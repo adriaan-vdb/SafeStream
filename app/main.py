@@ -41,7 +41,9 @@ from app.metrics import metrics
 from app.services import database as db_service
 
 # In-memory storage for connected WebSocket clients
-connected: dict[str, WebSocket] = {}
+connected: set[WebSocket] = set()
+# Keep track of username mappings for admin actions
+websocket_usernames: dict[WebSocket, str] = {}
 
 # Configuration
 MAX_CONNECTIONS = int(os.getenv("MAX_CONNECTIONS", "1000"))
@@ -271,7 +273,9 @@ def create_app(testing: bool = False) -> FastAPI:
             return
 
         await websocket.accept()
-        connected[username] = websocket
+        connected.add(websocket)
+        websocket_usernames[websocket] = username
+        logging.info(f"User {username} connected. Total connections: {len(connected)}")
 
         try:
             while True:
@@ -323,17 +327,29 @@ def create_app(testing: bool = False) -> FastAPI:
                     # Broadcast to all connected clients
                     message_json = outgoing_message.model_dump_json()
                     disconnected_clients = []
-                    for client_username, client_websocket in connected.items():
+                    broadcast_count = 0
+
+                    for (
+                        client_websocket
+                    ) in (
+                        connected.copy()
+                    ):  # Use copy to avoid modification during iteration
                         try:
                             await client_websocket.send_text(message_json)
+                            broadcast_count += 1
                         except Exception:
                             # Mark for removal
-                            disconnected_clients.append(client_username)
+                            disconnected_clients.append(client_websocket)
+
+                    # Log broadcast success
+                    logging.info(
+                        f"Message from {username} broadcast to {broadcast_count} clients"
+                    )
 
                     # Clean up disconnected clients
-                    for client_username in disconnected_clients:
-                        if client_username in connected:
-                            del connected[client_username]
+                    for client_websocket in disconnected_clients:
+                        connected.discard(client_websocket)
+                        websocket_usernames.pop(client_websocket, None)
 
                 except Exception as e:
                     # Handle validation errors and other exceptions gracefully
@@ -350,13 +366,16 @@ def create_app(testing: bool = False) -> FastAPI:
 
         except WebSocketDisconnect:
             # Clean up on disconnect
-            if username in connected:
-                del connected[username]
+            connected.discard(websocket)
+            websocket_usernames.pop(websocket, None)
+            logging.info(
+                f"User {username} disconnected. Total connections: {len(connected)}"
+            )
         except Exception as e:
             # Log errors and clean up
             logging.error(f"WebSocket error for {username}: {e}")
-            if username in connected:
-                del connected[username]
+            connected.discard(websocket)
+            websocket_usernames.pop(websocket, None)
 
     @app.post("/api/gift")
     async def gift_endpoint(gift_data: dict):
@@ -414,15 +433,25 @@ def create_app(testing: bool = False) -> FastAPI:
         if not target_username:
             raise HTTPException(status_code=400, detail="Username required")
 
-        # Remove user from connected clients
-        if target_username in connected:
+        # Remove all connections for the target user
+        kicked_connections = []
+        for websocket, ws_username in websocket_usernames.items():
+            if ws_username == target_username:
+                kicked_connections.append(websocket)
+
+        kick_count = 0
+        for websocket in kicked_connections:
             try:
-                await connected[target_username].close(
-                    code=1000, reason="Kicked by admin"
-                )
+                await websocket.close(code=1000, reason="Kicked by admin")
+                kick_count += 1
             except Exception:
                 pass  # Connection might already be closed
-            del connected[target_username]
+            connected.discard(websocket)
+            websocket_usernames.pop(websocket, None)
+
+        logging.info(
+            f"Admin {current_user.username} kicked user {target_username}. Closed {kick_count} connections."
+        )
 
         # Log the kick action to database
         async with async_session() as session:
@@ -539,19 +568,19 @@ async def cleanup_stale_connections():
             await asyncio.sleep(CLEANUP_INTERVAL)
             stale_connections = []
 
-            for username, websocket in connected.items():
+            for websocket in connected:
                 try:
                     # Try to send a ping to check if connection is alive
                     await websocket.ping()
                 except Exception:
                     # Connection is stale, mark for removal
-                    stale_connections.append(username)
+                    stale_connections.append(websocket)
 
             # Remove stale connections
-            for username in stale_connections:
-                if username in connected:
-                    del connected[username]
-                    logging.info(f"Removed stale connection: {username}")
+            for websocket in stale_connections:
+                connected.discard(websocket)
+                username = websocket_usernames.pop(websocket, None)
+                logging.info(f"Removed stale connection: {username or 'unknown'}")
 
         except asyncio.CancelledError:
             break

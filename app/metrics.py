@@ -18,11 +18,11 @@ class MetricsTracker:
         self.chat_message_total = 0
         self.toxic_message_total = 0
 
-    def get_viewer_count(self, connected: dict) -> int:
+    def get_viewer_count(self, connected) -> int:
         """Get current number of active WebSocket connections.
 
         Args:
-            connected: Dictionary of connected WebSocket clients
+            connected: Set of connected WebSocket clients
 
         Returns:
             Number of active connections
@@ -53,11 +53,11 @@ class MetricsTracker:
             return 0.0
         return (self.toxic_message_total / self.chat_message_total) * 100.0
 
-    def get_metrics(self, connected: dict) -> dict:
+    def get_metrics(self, connected) -> dict:
         """Get all current metrics.
 
         Args:
-            connected: Dictionary of connected WebSocket clients
+            connected: Set of connected WebSocket clients
 
         Returns:
             Dictionary containing all metrics

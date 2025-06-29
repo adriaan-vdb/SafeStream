@@ -21,7 +21,7 @@ GIFT_INTERVAL_SECS = int(os.getenv("GIFT_INTERVAL_SECS", "1"))
 TOXIC_THRESHOLD = float(os.getenv("TOXIC_THRESHOLD", "0.6"))
 
 
-async def gift_producer(websocket_connections: dict[str, WebSocket]):
+async def gift_producer(websocket_connections: set[WebSocket]):
     """Async background task that periodically generates and broadcasts random gift events.
 
     Runs in an infinite loop, generating gifts at GIFT_INTERVAL_SECS intervals.
@@ -66,29 +66,35 @@ async def gift_producer(websocket_connections: dict[str, WebSocket]):
             await asyncio.sleep(5)  # Wait before retrying
 
 
-async def broadcast_gift(connections: dict[str, WebSocket], gift_data: dict[str, Any]):
+async def broadcast_gift(connections: set[WebSocket], gift_data: dict[str, Any]):
     """Broadcast gift event to all connected clients.
 
     Sends JSON matching README protocol: {"type":"gift","from":"bot","gift_id":123,"amount":5,"ts":"2025-06-26T12:34:56Z"}
     """
     message_json = json.dumps(gift_data)
     disconnected_clients = []
+    broadcast_count = 0
 
-    for client_username, client_websocket in connections.items():
+    for (
+        client_websocket
+    ) in connections.copy():  # Use copy to avoid modification during iteration
         try:
             await client_websocket.send_text(message_json)
+            broadcast_count += 1
         except Exception as e:
             # Mark for removal
-            disconnected_clients.append(client_username)
-            logging.warning(f"Failed to send gift to {client_username}: {e}")
+            disconnected_clients.append(client_websocket)
+            logging.warning(f"Failed to send gift to client: {e}")
+
+    # Log broadcast success
+    logging.info(f"Gift broadcast to {broadcast_count} clients")
 
     # Clean up disconnected clients
-    for username in disconnected_clients:
-        if username in connections:
-            del connections[username]
+    for client_websocket in disconnected_clients:
+        connections.discard(client_websocket)
 
 
-async def create_gift_task(websocket_connections: dict[str, WebSocket]):
+async def create_gift_task(websocket_connections: set[WebSocket]):
     """Create and return the gift producer background task.
 
     This function allows main.py to start the gift producer as a background task.
