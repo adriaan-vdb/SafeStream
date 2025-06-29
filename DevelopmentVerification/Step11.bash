@@ -311,167 +311,221 @@ python3 -c "
 import asyncio
 from fastapi.testclient import TestClient
 from app.main import create_app
+from app.db import close_db
 
-app = create_app(testing=True)
+async def test_auth():
+    try:
+        app = create_app(testing=True)
+        
+        with TestClient(app) as client:
+            # Test registration (database-only)
+            response = client.post('/auth/register', json={
+                'username': 'phase_e_test_user',
+                'password': 'testpass123',
+                'email': 'phase_e@test.com'
+            })
+            assert response.status_code == 200
+            token = response.json()['access_token']
+            
+            # Test login (database-only)
+            response = client.post('/auth/login', data={
+                'username': 'phase_e_test_user',
+                'password': 'testpass123'
+            })
+            assert response.status_code == 200
+            
+            print('  ✓ Database-only authentication working')
+    finally:
+        # Properly dispose of database connections
+        await close_db()
 
-with TestClient(app) as client:
-    # Test registration (database-only)
-    response = client.post('/auth/register', json={
-        'username': 'phase_e_test_user',
-        'password': 'testpass123',
-        'email': 'phase_e@test.com'
-    })
-    assert response.status_code == 200
-    token = response.json()['access_token']
-    
-    # Test login (database-only)
-    response = client.post('/auth/login', data={
-        'username': 'phase_e_test_user',
-        'password': 'testpass123'
-    })
-    assert response.status_code == 200
-    
-    print('  ✓ Database-only authentication working')
+asyncio.run(test_auth())
 "
 
 # Test 4: Test WebSocket database-only operations
 echo "✅ Testing WebSocket database-only operations..."
 python3 -c "
+import asyncio
 from fastapi.testclient import TestClient
 from app.main import create_app
+from app.db import close_db
 
-app = create_app(testing=True)
+async def test_websocket():
+    try:
+        app = create_app(testing=True)
+        
+        with TestClient(app) as client:
+            # Register user and get token
+            response = client.post('/auth/register', json={
+                'username': 'ws_phase_e_user',
+                'password': 'testpass123',
+                'email': 'ws_phase_e@test.com'
+            })
+            assert response.status_code == 200
+            token = response.json()['access_token']
+            
+            # Test WebSocket (database-only message storage)
+            with client.websocket_connect(f'/ws/ws_phase_e_user?token={token}') as websocket:
+                websocket.send_json({'message': 'Database-only test message'})
+                data = websocket.receive_json()
+                assert data['user'] == 'ws_phase_e_user'
+                assert data['message'] == 'Database-only test message'
+            
+            print('  ✓ WebSocket database-only operations working')
+    finally:
+        # Properly dispose of database connections
+        await close_db()
 
-with TestClient(app) as client:
-    # Register user and get token
-    response = client.post('/auth/register', json={
-        'username': 'ws_phase_e_user',
-        'password': 'testpass123',
-        'email': 'ws_phase_e@test.com'
-    })
-    assert response.status_code == 200
-    token = response.json()['access_token']
-    
-    # Test WebSocket (database-only message storage)
-    with client.websocket_connect(f'/ws/ws_phase_e_user?token={token}') as websocket:
-        websocket.send_json({'message': 'Database-only test message'})
-        data = websocket.receive_json()
-        assert data['user'] == 'ws_phase_e_user'
-        assert data['message'] == 'Database-only test message'
-    
-    print('  ✓ WebSocket database-only operations working')
+asyncio.run(test_websocket())
 "
 
 # Test 5: Test gift events database-only
 echo "✅ Testing gift events database-only..."
 python3 -c "
+import asyncio
 from fastapi.testclient import TestClient
 from app.main import create_app
+from app.db import close_db
 
-app = create_app(testing=True)
+async def test_gifts():
+    try:
+        app = create_app(testing=True)
+        
+        with TestClient(app) as client:
+            # Test gift endpoint (database-only)
+            response = client.post('/api/gift', json={
+                'from': 'phase_e_gift_user',
+                'gift_id': 1,
+                'amount': 5
+            })
+            assert response.status_code == 200
+            
+            print('  ✓ Gift events database-only operations working')
+    finally:
+        # Properly dispose of database connections
+        await close_db()
 
-with TestClient(app) as client:
-    # Test gift endpoint (database-only)
-    response = client.post('/api/gift', json={
-        'from': 'phase_e_gift_user',
-        'gift_id': 1,
-        'amount': 5
-    })
-    assert response.status_code == 200
-    
-    print('  ✓ Gift events database-only operations working')
+asyncio.run(test_gifts())
 "
 
 # Test 6: Test admin actions database-only
 echo "✅ Testing admin actions database-only..."
 python3 -c "
+import asyncio
 from fastapi.testclient import TestClient
 from app.main import create_app
+from app.db import close_db
 
-app = create_app(testing=True)
+async def test_admin():
+    try:
+        app = create_app(testing=True)
+        
+        with TestClient(app) as client:
+            # Register admin user
+            response = client.post('/auth/register', json={
+                'username': 'admin_phase_e_user',
+                'password': 'testpass123',
+                'email': 'admin_phase_e@test.com'
+            })
+            assert response.status_code == 200
+            token = response.json()['access_token']
+            
+            # Test admin actions (database-only)
+            response = client.post('/api/admin/kick', 
+                json={'username': 'target_user'},
+                headers={'Authorization': f'Bearer {token}'}
+            )
+            assert response.status_code == 200
+            
+            print('  ✓ Admin actions database-only operations working')
+    finally:
+        # Properly dispose of database connections
+        await close_db()
 
-with TestClient(app) as client:
-    # Register admin user
-    response = client.post('/auth/register', json={
-        'username': 'admin_phase_e_user',
-        'password': 'testpass123',
-        'email': 'admin_phase_e@test.com'
-    })
-    assert response.status_code == 200
-    token = response.json()['access_token']
-    
-    # Test admin actions (database-only)
-    response = client.post('/api/admin/kick', 
-        json={'username': 'target_user'},
-        headers={'Authorization': f'Bearer {token}'}
-    )
-    assert response.status_code == 200
-    
-    print('  ✓ Admin actions database-only operations working')
+asyncio.run(test_admin())
 "
 
 # Test 7: Test dashboard database integration
 echo "✅ Testing dashboard database integration..."
 python3 -c "
 import sys
+import asyncio
 from pathlib import Path
 sys.path.append(str(Path('dashboard').resolve()))
 
-try:
-    # Import dashboard modules to verify database integration
-    from dashboard.app import fetch_database_messages, get_database_engine
-    import asyncio
-    
-    # Test database engine creation
-    engine = get_database_engine()
-    assert engine is not None
-    
-    print('  ✓ Dashboard database integration working')
-except Exception as e:
-    print(f'  ⚠ Dashboard database integration may have issues: {e}')
+async def test_dashboard():
+    try:
+        # Import dashboard modules to verify database integration
+        from dashboard.app import fetch_database_messages, get_database_engine
+        
+        # Test database engine creation
+        engine = get_database_engine()
+        assert engine is not None
+        
+        print('  ✓ Dashboard database integration working')
+    except Exception as e:
+        print(f'  ⚠ Dashboard database integration may have issues: {e}')
+    finally:
+        # Clean up any connections if they exist
+        from app.db import close_db
+        try:
+            await close_db()
+        except:
+            pass  # Ignore cleanup errors
+
+asyncio.run(test_dashboard())
 "
 
 # Test 8: Verify no JSON files created during runtime
 echo "✅ Testing runtime - no JSON files should be created..."
 python3 -c "
+import asyncio
 from fastapi.testclient import TestClient
 from app.main import create_app
+from app.db import close_db
 
-# Create test app and run operations that previously created JSON files
-app = create_app(testing=True)
+async def test_runtime():
+    try:
+        # Create test app and run operations that previously created JSON files
+        app = create_app(testing=True)
+        
+        with TestClient(app) as client:
+            # Register user
+            response = client.post('/auth/register', json={
+                'username': 'runtime_test_user',
+                'password': 'testpass123',
+                'email': 'runtime@test.com'
+            })
+            assert response.status_code == 200
+            token = response.json()['access_token']
+            
+            # Test WebSocket (would previously create JSONL logs)
+            with client.websocket_connect(f'/ws/runtime_test_user?token={token}') as websocket:
+                websocket.send_json({'message': 'Test message'})
+                data = websocket.receive_json()
+                assert data['user'] == 'runtime_test_user'
+            
+            # Test gift endpoint (would previously create JSONL logs)
+            response = client.post('/api/gift', json={
+                'from': 'runtime_test_user',
+                'gift_id': 1,
+                'amount': 5
+            })
+            assert response.status_code == 200
+            
+            # Test admin actions (would previously create JSONL logs)
+            response = client.post('/api/admin/kick', 
+                json={'username': 'target_user'},
+                headers={'Authorization': f'Bearer {token}'}
+            )
+            assert response.status_code == 200
+        
+        print('  ✓ Runtime test completed - database-only operations working')
+    finally:
+        # Properly dispose of database connections
+        await close_db()
 
-with TestClient(app) as client:
-    # Register user
-    response = client.post('/auth/register', json={
-        'username': 'runtime_test_user',
-        'password': 'testpass123',
-        'email': 'runtime@test.com'
-    })
-    assert response.status_code == 200
-    token = response.json()['access_token']
-    
-    # Test WebSocket (would previously create JSONL logs)
-    with client.websocket_connect(f'/ws/runtime_test_user?token={token}') as websocket:
-        websocket.send_json({'message': 'Test message'})
-        data = websocket.receive_json()
-        assert data['user'] == 'runtime_test_user'
-    
-    # Test gift endpoint (would previously create JSONL logs)
-    response = client.post('/api/gift', json={
-        'from': 'runtime_test_user',
-        'gift_id': 1,
-        'amount': 5
-    })
-    assert response.status_code == 200
-    
-    # Test admin actions (would previously create JSONL logs)
-    response = client.post('/api/admin/kick', 
-        json={'username': 'target_user'},
-        headers={'Authorization': f'Bearer {token}'}
-    )
-    assert response.status_code == 200
-
-print('  ✓ Runtime test completed - database-only operations working')
+asyncio.run(test_runtime())
 "
 
 # Test 9: Final check - no JSON files created after tests
@@ -565,18 +619,22 @@ echo "✅ Testing API startup with database-only mode..."
 python3 -c "
 import asyncio
 from app.main import create_app
-from app.db import init_db
+from app.db import init_db, close_db
 
 async def test_startup():
-    # Initialize database
-    await init_db()
-    
-    # Create app (should not reference any JSON files)
-    app = create_app(testing=True)
-    
-    # Verify app can start without any file dependencies
-    assert app is not None
-    print('  ✓ API starts successfully in database-only mode')
+    try:
+        # Initialize database
+        await init_db()
+        
+        # Create app (should not reference any JSON files)
+        app = create_app(testing=True)
+        
+        # Verify app can start without any file dependencies
+        assert app is not None
+        print('  ✓ API starts successfully in database-only mode')
+    finally:
+        # Properly dispose of database connections
+        await close_db()
 
 asyncio.run(test_startup())
 "
