@@ -16,23 +16,20 @@ class Settings(BaseSettings):
     # Database Configuration
     database_url: str = Field(
         default="sqlite+aiosqlite:///./data/safestream.db",
-        env="DATABASE_URL",
         description="Database connection URL",
     )
 
     db_echo: bool = Field(
         default=False,
-        env="DB_ECHO",
         description="Enable SQLAlchemy query logging",
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        extra = "ignore"  # Ignore extra fields from environment
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+        "extra": "ignore",  # Ignore extra fields from environment
+    }
 
 
 # Global settings instance

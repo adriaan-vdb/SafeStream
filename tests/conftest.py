@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.auth import create_user
 from app.db import Base
 from app.main import create_app
 from app.schemas import ChatMessageIn, ChatMessageOut, GiftEventOut
@@ -52,10 +51,16 @@ async def test_session(async_engine_e2e):
 
 
 @pytest_asyncio.fixture
-async def sample_user(test_session):
+async def sample_user():
     """Provide a pre-created user object for testing."""
+    import os
     import random
     import string
+    from unittest.mock import patch
+
+    from app.auth import get_password_hash
+    from app.db import async_session, init_db
+    from app.services import database as db_service
 
     # Generate unique username for each test
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -63,8 +68,26 @@ async def sample_user(test_session):
     password = "testpass123"
     email = f"testuser_{suffix}@example.com"
 
-    user = await create_user(username, password, email)
-    return user
+    # Use in-memory database
+    test_db_url = "sqlite+aiosqlite:///:memory:"
+
+    with patch.dict(os.environ, {"DATABASE_URL": test_db_url}):
+        # Re-import settings to pick up new environment variable
+        from app.config import Settings
+
+        test_settings = Settings()
+
+        with patch("app.db.settings", test_settings):
+            # Initialize database
+            await init_db()
+
+            # Create sample user with proper database session
+            async with async_session() as session:
+                hashed_password = get_password_hash(password)
+                user = await db_service.create_user(
+                    session, username, email, hashed_password
+                )
+                yield user
 
 
 @pytest.fixture

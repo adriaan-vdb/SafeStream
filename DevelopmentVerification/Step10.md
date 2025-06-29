@@ -19,10 +19,10 @@ Stage 10 implements comprehensive JWT (JSON Web Token) authentication for SafeSt
 ### 1. JWT Authentication Core (`app/auth.py`)
 
 #### User Management
-- **User Registration**: `create_user()` function with password hashing
-- **User Authentication**: `authenticate_user()` with bcrypt password verification
-- **User Storage**: JSON-based user persistence with file locking
-- **User Retrieval**: `get_user()` and `get_user_by_token()` functions
+- **User Registration**: `create_user()` async function with password hashing
+- **User Authentication**: `authenticate_user()` async function with bcrypt password verification
+- **User Storage**: SQLAlchemy database persistence with ACID transactions
+- **User Retrieval**: `get_user()` and `get_user_by_token()` async functions
 
 #### JWT Token Management
 - **Token Creation**: `create_access_token()` with configurable expiry
@@ -199,31 +199,88 @@ Authorization: Bearer <jwt_token>
 
 ### User Registration
 ```python
+import asyncio
 from app.auth import create_user
+from app.db import init_db
 
-user = create_user("alice", "secure_password123", "alice@example.com")
+async def register_example():
+    # Initialize database first
+    await init_db()
+    
+    # Create user (now async)
+    user = await create_user("alice", "secure_password123", "alice@example.com")
+    print(f"Created user: {user.username}")
+
+# Run the async function
+asyncio.run(register_example())
 ```
 
 ### User Authentication
 ```python
+import asyncio
 from app.auth import authenticate_user
+from app.db import init_db
 
-user = authenticate_user("alice", "secure_password123")
-if user:
-    print(f"Authenticated: {user.username}")
+async def auth_example():
+    # Initialize database first
+    await init_db()
+    
+    # Authenticate user (now async)
+    user = await authenticate_user("alice", "secure_password123")
+    if user:
+        print(f"Authenticated: {user.username}")
+    else:
+        print("Authentication failed")
+
+# Run the async function
+asyncio.run(auth_example())
 ```
 
 ### JWT Token Creation
 ```python
 from app.auth import create_access_token
 
+# Token creation is still synchronous
 token = create_access_token({"sub": "alice"})
+print(f"Generated token: {token}")
+```
+
+### Token Validation
+```python
+import asyncio
+from app.auth import get_user_by_token
+from app.db import init_db
+
+async def token_validation_example():
+    # Initialize database first
+    await init_db()
+    
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    
+    # Token validation is now async
+    user = await get_user_by_token(token)
+    if user:
+        print(f"Token valid for user: {user.username}")
+    else:
+        print("Invalid token")
+
+# Run the async function
+asyncio.run(token_validation_example())
 ```
 
 ### WebSocket Connection
 ```javascript
-const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
+const token = "your_jwt_token_here";
 const ws = new WebSocket(`ws://localhost:8000/ws/alice?token=${token}`);
+
+ws.onopen = function() {
+    console.log("Connected to WebSocket with JWT authentication");
+};
+
+ws.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    console.log("Received:", data);
+};
 ```
 
 ## 🔧 Configuration
@@ -234,14 +291,25 @@ const ws = new WebSocket(`ws://localhost:8000/ws/alice?token=${token}`);
 JWT_SECRET_KEY=your-secret-key-change-in-production
 JWT_EXPIRE_MINUTES=30
 
-# User Storage
-SAFESTREAM_USERS_FILE=users.json
+# Database Configuration (Step 11 Migration)
+DATABASE_URL=sqlite+aiosqlite:///./data/safestream.db
+DB_ECHO=false
+
+# Optional: Disable ML model for testing
+DISABLE_DETOXIFY=1
 ```
 
 ### Default Values
 - **Secret Key**: `"your-secret-key-change-in-production"`
 - **Token Expiry**: 30 minutes
-- **User File**: `users.json`
+- **Database**: SQLite with async support
+- **Storage**: Database-only (no JSON files)
+
+### Migration Notes from Step 10 to Step 11
+- **REMOVED**: `SAFESTREAM_USERS_FILE` environment variable (JSON storage)
+- **ADDED**: `DATABASE_URL` for database connection
+- **CHANGED**: All authentication functions now require `async`/`await`
+- **CHANGED**: Database must be initialized before authentication operations
 
 ## ✅ Verification Results
 
@@ -273,26 +341,35 @@ SAFESTREAM_USERS_FILE=users.json
 ## 🔮 Future Enhancements
 
 ### Potential Improvements
-1. **Database Integration**: Replace JSON storage with proper database
-2. **Refresh Tokens**: Implement refresh token mechanism
-3. **Role-Based Access**: Add user roles and permissions
-4. **Rate Limiting**: Implement authentication rate limiting
-5. **Audit Logging**: Enhanced security audit logging
+1. **Refresh Tokens**: Implement refresh token mechanism
+2. **Role-Based Access**: Add user roles and permissions
+3. **Rate Limiting**: Implement authentication rate limiting
+4. **Audit Logging**: Enhanced security audit logging
+5. **Database Optimization**: Query optimization and connection pooling
 
 ### Scalability Considerations
 - **Token Blacklisting**: For logout functionality
 - **Distributed Sessions**: For multi-server deployments
 - **OAuth Integration**: Third-party authentication providers
+- **Database Scaling**: PostgreSQL migration for production deployments
 
 ## 📝 Commit Summary
 
-This stage successfully implements a complete JWT authentication system for SafeStream, providing secure user management, protected endpoints, and comprehensive testing. All authentication features are fully functional and verified through extensive testing.
+This stage successfully implements a complete JWT authentication system for SafeStream, providing secure user management, protected endpoints, and comprehensive testing. Updated for Step 11 database-only implementation with async patterns throughout.
 
 **Key Achievements:**
-- Complete JWT authentication implementation
+- Complete JWT authentication implementation with SQLAlchemy database backend
 - Secure password hashing with bcrypt
-- Protected WebSocket connections
-- Admin endpoint security
-- Comprehensive test coverage
-- Self-contained verification scripts
-- Production-ready security features 
+- Protected WebSocket connections with JWT tokens
+- Admin endpoint security with database-backed authentication
+- Comprehensive test coverage using database fixtures
+- Self-contained verification scripts updated for database-only mode
+- Production-ready security features with ACID transaction guarantees
+- Full migration from JSON file storage to database persistence
+
+**Post-Step 11 Updates:**
+- All authentication functions converted to async/await patterns
+- Database initialization required before authentication operations
+- Removed all JSON file dependencies and storage mechanisms
+- Updated verification scripts for database-only testing
+- Enhanced configuration with database connection management 

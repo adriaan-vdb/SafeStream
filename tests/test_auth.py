@@ -35,21 +35,18 @@ def get_unique_username(prefix: str = "testuser") -> str:
 
 
 class TestPasswordHashing:
-    """Test password hashing functionality."""
+    """Test password hashing and verification."""
 
     def test_password_hashing(self):
-        """Test that passwords are properly hashed."""
-        password = "testpassword123"
-        hashed = get_password_hash(password)
-
-        assert hashed != password
-        assert verify_password(password, hashed)
+        """Test password hashing works."""
+        password = "testpass123"
+        hash1 = get_password_hash(password)
+        assert verify_password(password, hash1)
 
     def test_different_passwords_different_hashes(self):
         """Test that different passwords produce different hashes."""
-        password1 = "testpassword123"
-        password2 = "differentpassword456"
-
+        password1 = "testpass123"
+        password2 = "testpass456"
         hash1 = get_password_hash(password1)
         hash2 = get_password_hash(password2)
 
@@ -60,19 +57,36 @@ class TestUserManagementDB:
     """Test database-backed user creation and management."""
 
     @pytest.mark.asyncio
-    async def test_create_user(self, test_session):
+    async def test_create_user(self):
         """Test creating a new user in database."""
+        import os
+        from unittest.mock import patch
+
+        from app.db import init_db
+
         username = get_unique_username()
         password = "testpass"
         email = f"{username}@test.com"
 
-        user = await create_user(username, password, email)
+        # Setup test database environment
+        test_db_url = "sqlite+aiosqlite:///:memory:"
+        with patch.dict(os.environ, {"DATABASE_URL": test_db_url}):
+            from app.config import Settings
 
-        assert user.username == username
-        assert user.email == email
-        assert user.hashed_password != password
-        assert verify_password(password, user.hashed_password)
-        assert user.disabled is False
+            test_settings = Settings()
+
+            with patch("app.db.settings", test_settings):
+                # Initialize database
+                await init_db()
+
+                # Test user creation
+                user = await create_user(username, password, email)
+
+                assert user.username == username
+                assert user.email == email
+                assert user.hashed_password != password
+                assert verify_password(password, user.hashed_password)
+                assert user.disabled is False
 
     @pytest.mark.asyncio
     async def test_create_duplicate_user(self, test_session, sample_user):

@@ -2,14 +2,17 @@
 
 # Stage 10 Verification: JWT Authentication Integration
 # Tests: Registration, login, token validation, WebSocket auth, admin endpoints
+# Updated for Step 11 database-only implementation
 
 set -e
 
-echo "=== Stage 10: JWT Authentication Integration ==="
+echo "=== Stage 10: JWT Authentication Integration (Updated for Database-Only) ==="
 
 # Set up environment variables
 export JWT_SECRET_KEY="test-secret-key-for-verification"
 export JWT_EXPIRE_MINUTES=30
+export DATABASE_URL="sqlite+aiosqlite:///:memory:"
+export DISABLE_DETOXIFY=1
 
 # Generate unique test usernames to avoid conflicts
 TEST_USERNAME="testuser_$(date +%s)"
@@ -17,9 +20,6 @@ API_USERNAME="apiuser_$(date +%s)"
 TARGET_USERNAME="targetuser_$(date +%s)"
 
 echo "Using test usernames: $TEST_USERNAME, $API_USERNAME, $TARGET_USERNAME"
-
-# Clean up any existing test files
-rm -f users.json test_users.json
 
 # Test 1: Environment Variables
 echo "1. Testing environment variables..."
@@ -31,32 +31,36 @@ assert ACCESS_TOKEN_EXPIRE_MINUTES == 30
 print('✓ Environment variables loaded correctly')
 "
 
-# Test 2: User Registration
-echo "2. Testing user registration..."
+# Test 2: Database Initialization and User Registration
+echo "2. Testing database initialization and user registration..."
 python3 -c "
 import asyncio
-import json
 import os
+from app.db import init_db
 from app.auth import create_user, get_user
 
-# Use the actual username from command line argument or generate one
-import sys
-test_username = '$TEST_USERNAME' if '$TEST_USERNAME' != '' else 'testuser_$(date +%s)'
-print(f'Creating user: {test_username}')
+async def test_registration():
+    # Initialize database
+    await init_db()
+    
+    test_username = '$TEST_USERNAME'
+    print(f'Creating user: {test_username}')
 
-# Test registration
-user = create_user(test_username, 'testpass123', 'test@example.com')
-assert user.username == test_username
-assert user.email == 'test@example.com'
-print('✓ User registration works')
+    # Test registration
+    user = await create_user(test_username, 'testpass123', 'test@example.com')
+    assert user.username == test_username
+    assert user.email == 'test@example.com'
+    print('✓ User registration works')
 
-# Test duplicate registration fails
-try:
-    create_user(test_username, 'anotherpass', 'another@example.com')
-    assert False, 'Should have failed'
-except Exception as e:
-    assert 'already registered' in str(e)
-    print('✓ Duplicate registration properly rejected')
+    # Test duplicate registration fails
+    try:
+        await create_user(test_username, 'anotherpass', 'another@example.com')
+        assert False, 'Should have failed'
+    except Exception as e:
+        assert 'already registered' in str(e)
+        print('✓ Duplicate registration properly rejected')
+
+asyncio.run(test_registration())
 "
 
 # Test 3: User Authentication
@@ -64,26 +68,36 @@ echo "3. Testing user authentication..."
 python3 -c "
 import asyncio
 import os
-from app.auth import authenticate_user, get_user
+from app.db import init_db
+from app.auth import authenticate_user, get_user, create_user
 
-test_username = '$TEST_USERNAME' if '$TEST_USERNAME' != '' else 'testuser_$(date +%s)'
-print(f'Authenticating user: {test_username}')
+async def test_authentication():
+    # Initialize database
+    await init_db()
+    
+    test_username = '$TEST_USERNAME'
+    print(f'Testing authentication for user: {test_username}')
 
-# Test valid authentication
-user = authenticate_user(test_username, 'testpass123')
-assert user is not None
-assert user.username == test_username
-print('✓ Valid authentication works')
+    # Create user first (since database is in-memory)
+    await create_user(test_username, 'testpass123', 'test@example.com')
 
-# Test invalid password
-user = authenticate_user(test_username, 'wrongpass')
-assert user is None
-print('✓ Invalid password properly rejected')
+    # Test valid authentication
+    user = await authenticate_user(test_username, 'testpass123')
+    assert user is not None
+    assert user.username == test_username
+    print('✓ Valid authentication works')
 
-# Test non-existent user
-user = authenticate_user('nonexistent', 'testpass123')
-assert user is None
-print('✓ Non-existent user properly rejected')
+    # Test invalid password
+    user = await authenticate_user(test_username, 'wrongpass')
+    assert user is None
+    print('✓ Invalid password properly rejected')
+
+    # Test non-existent user
+    user = await authenticate_user('nonexistent', 'testpass123')
+    assert user is None
+    print('✓ Non-existent user properly rejected')
+
+asyncio.run(test_authentication())
 "
 
 # Test 4: JWT Token Creation and Validation
@@ -91,30 +105,39 @@ echo "4. Testing JWT token creation and validation..."
 python3 -c "
 import asyncio
 import os
-from app.auth import create_access_token, get_user_by_token
+from app.db import init_db
+from app.auth import create_access_token, get_user_by_token, create_user
 
-test_username = '$TEST_USERNAME' if '$TEST_USERNAME' != '' else 'testuser_$(date +%s)'
+async def test_jwt():
+    # Initialize database
+    await init_db()
+    
+    test_username = '$TEST_USERNAME'
 
-# Test token creation
-token = create_access_token({'sub': test_username})
-assert token is not None
-print('✓ JWT token creation works')
+    # Create user first (since database is in-memory)
+    await create_user(test_username, 'testpass123', 'test@example.com')
 
-# Test token validation
-user = get_user_by_token(token)
-assert user is not None
-assert user.username == test_username
-print('✓ JWT token validation works')
+    # Test token creation
+    token = create_access_token({'sub': test_username})
+    assert token is not None
+    print('✓ JWT token creation works')
 
-# Test invalid token
-user = get_user_by_token('invalid-token')
-assert user is None
-print('✓ Invalid token properly rejected')
+    # Test token validation
+    user = await get_user_by_token(token)
+    assert user is not None
+    assert user.username == test_username
+    print('✓ JWT token validation works')
+
+    # Test invalid token
+    user = await get_user_by_token('invalid-token')
+    assert user is None
+    print('✓ Invalid token properly rejected')
+
+asyncio.run(test_jwt())
 "
 
 # Test 5: API Integration (Registration and Login endpoints)
 echo "5. Testing API integration..."
-export DISABLE_DETOXIFY=1  # Use stub for testing
 
 # Kill any existing process on port 8002
 pkill -f "uvicorn.*8002" 2>/dev/null || true
@@ -144,7 +167,7 @@ import json
 import os
 import time
 
-api_username = '$API_USERNAME' if '$API_USERNAME' != '' else 'apiuser_$(date +%s)'
+api_username = '$API_USERNAME'
 print(f'Testing API with username: {api_username}')
 
 # Test registration
@@ -189,7 +212,7 @@ import json
 import requests
 import os
 
-api_username = '$API_USERNAME' if '$API_USERNAME' != '' else 'apiuser_$(date +%s)'
+api_username = '$API_USERNAME'
 
 # Get token first
 response = requests.post('http://localhost:8002/auth/login', 
@@ -242,8 +265,8 @@ import requests
 import json
 import os
 
-api_username = '$API_USERNAME' if '$API_USERNAME' != '' else 'apiuser_$(date +%s)'
-target_username = '$TARGET_USERNAME' if '$TARGET_USERNAME' != '' else 'targetuser_$(date +%s)'
+api_username = '$API_USERNAME'
+target_username = '$TARGET_USERNAME'
 
 # Get token
 response = requests.post('http://localhost:8002/auth/login', 
@@ -286,15 +309,11 @@ python3 -m mypy app/auth.py app/main.py app/schemas.py --ignore-missing-imports
 
 # Test 9: Test Coverage
 echo "9. Running authentication tests..."
-export DISABLE_DETOXIFY=1
-pytest tests/test_auth.py -q
+pytest tests/test_auth.py -v
 
-# Final cleanup
-echo "10. Cleaning up test data..."
-rm -f users.json test_users.json
-
-echo "=== Stage 10 Verification Complete ==="
+echo "=== Stage 10 Verification Complete (Updated for Database-Only) ==="
 echo "✓ Environment variables work"
+echo "✓ Database initialization works"
 echo "✓ User registration works"
 echo "✓ User authentication works"
 echo "✓ JWT token creation and validation works"
@@ -302,5 +321,4 @@ echo "✓ API endpoints work"
 echo "✓ WebSocket authentication works"
 echo "✓ Admin endpoints work"
 echo "✓ Code quality checks pass"
-echo "✓ Tests pass"
-echo "✓ Test data cleaned up" 
+echo "✓ Tests pass" 

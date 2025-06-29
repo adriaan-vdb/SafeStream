@@ -111,7 +111,11 @@ async def lifespan(app: FastAPI):
 
 @asynccontextmanager
 async def test_lifespan(app: FastAPI):
-    """Test lifespan that does not start background tasks."""
+    """Test lifespan that initializes database but does not start background tasks."""
+    # Initialize database for testing
+    await init_db()
+    logging.info("Database initialized for testing")
+
     yield
 
 
@@ -297,17 +301,19 @@ def create_app(testing: bool = False) -> FastAPI:
                     # Save message to database
                     async with async_session() as session:
                         # Get or create user for database
-                        user = await db_service.get_user_by_username(session, username)
-                        if not user:
+                        db_user = await db_service.get_user_by_username(
+                            session, username
+                        )
+                        if not db_user:
                             # Create user with temporary password (they'll need to register properly)
-                            user = await db_service.create_user(
+                            db_user = await db_service.create_user(
                                 session, username, None, "temp_websocket_user"
                             )
 
                         # Save message to database
                         await db_service.save_message(
                             session,
-                            user.id,
+                            db_user.id,
                             chat_message.message,
                             toxic,
                             score,
@@ -374,18 +380,18 @@ def create_app(testing: bool = False) -> FastAPI:
             # Save gift event to database
             async with async_session() as session:
                 # Get or create user for database
-                user = await db_service.get_user_by_username(
+                db_user = await db_service.get_user_by_username(
                     session, gift_event.from_user
                 )
-                if not user:
+                if not db_user:
                     # Create user with temporary password
-                    user = await db_service.create_user(
+                    db_user = await db_service.create_user(
                         session, gift_event.from_user, None, "temp_gift_user"
                     )
 
                 # Save gift event to database
                 await db_service.save_gift_event(
-                    session, user.id, str(gift_event.gift_id), gift_event.amount
+                    session, db_user.id, str(gift_event.gift_id), gift_event.amount
                 )
 
             # Broadcast to all connected WebSocket clients using events module
