@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
-from app.db.models import AdminAction, GiftEvent, Message, User
 
 
 class Base(DeclarativeBase):
@@ -42,6 +41,9 @@ async def close_db() -> None:
     """Close database connections."""
     await async_engine.dispose()
 
+
+# Import models after Base is defined to avoid circular imports
+from app.db.models import AdminAction, GiftEvent, Message, User  # noqa: E402
 
 # Export public API
 __all__ = [

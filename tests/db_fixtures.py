@@ -10,8 +10,8 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
+import pytest_asyncio
 
-from app.config import Settings
 from app.db import async_session, init_db
 
 
@@ -23,7 +23,7 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def temp_db():
     """Create a temporary database file for testing."""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_file:
@@ -39,16 +39,20 @@ async def temp_db():
         os.unlink(temp_db_path)
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def test_db_session(temp_db):
     """Create a test database session with temporary database."""
     # Create test database URL
     test_db_url = f"sqlite+aiosqlite:///{temp_db}"
 
-    # Patch the settings to use test database
-    with patch.object(Settings, "DATABASE_URL", test_db_url):
-        # Patch the database configuration
-        with patch("app.db.settings.DATABASE_URL", test_db_url):
+    # Patch environment variable
+    with patch.dict(os.environ, {"DATABASE_URL": test_db_url}):
+        # Re-import settings to pick up new environment variable
+        from app.config import Settings
+
+        test_settings = Settings()
+
+        with patch("app.db.settings", test_settings):
             # Initialize test database
             await init_db()
 
@@ -59,16 +63,20 @@ async def test_db_session(temp_db):
                 await session.rollback()
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def memory_db_session():
     """Create an in-memory SQLite database session for testing."""
     # Use in-memory SQLite database
     test_db_url = "sqlite+aiosqlite:///:memory:"
 
-    # Patch the settings to use in-memory database
-    with patch.object(Settings, "DATABASE_URL", test_db_url):
-        # Patch the database configuration
-        with patch("app.db.settings.DATABASE_URL", test_db_url):
+    # Patch environment variable
+    with patch.dict(os.environ, {"DATABASE_URL": test_db_url}):
+        # Re-import settings to pick up new environment variable
+        from app.config import Settings
+
+        test_settings = Settings()
+
+        with patch("app.db.settings", test_settings):
             # Initialize in-memory database
             await init_db()
 
@@ -87,15 +95,20 @@ def patch_database_url():
         yield test_db_url
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def clean_db_session():
     """Create a clean database session that gets reset after each test."""
     # Use in-memory database for speed
     test_db_url = "sqlite+aiosqlite:///:memory:"
 
-    # Patch configuration
-    with patch.object(Settings, "DATABASE_URL", test_db_url):
-        with patch("app.db.settings.DATABASE_URL", test_db_url):
+    # Patch environment variable
+    with patch.dict(os.environ, {"DATABASE_URL": test_db_url}):
+        # Re-import settings to pick up new environment variable
+        from app.config import Settings
+
+        test_settings = Settings()
+
+        with patch("app.db.settings", test_settings):
             # Initialize database
             await init_db()
 
@@ -119,7 +132,7 @@ def mock_db_failure():
         yield
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def populated_test_db():
     """Create a test database with some sample data."""
     from app.services import database as db_service
@@ -127,8 +140,13 @@ async def populated_test_db():
     # Use in-memory database
     test_db_url = "sqlite+aiosqlite:///:memory:"
 
-    with patch.object(Settings, "DATABASE_URL", test_db_url):
-        with patch("app.db.settings.DATABASE_URL", test_db_url):
+    with patch.dict(os.environ, {"DATABASE_URL": test_db_url}):
+        # Re-import settings to pick up new environment variable
+        from app.config import Settings
+
+        test_settings = Settings()
+
+        with patch("app.db.settings", test_settings):
             # Initialize database
             await init_db()
 
@@ -159,3 +177,44 @@ async def populated_test_db():
                 )
 
                 yield session
+
+
+# Alias for test_session (commonly used name)
+test_session = memory_db_session
+
+
+@pytest_asyncio.fixture(scope="function")
+async def sample_user():
+    """Create a sample user for testing."""
+    import time
+
+    from app.services import database as db_service
+
+    # Use in-memory database
+    test_db_url = "sqlite+aiosqlite:///:memory:"
+
+    with patch.dict(os.environ, {"DATABASE_URL": test_db_url}):
+        # Re-import settings to pick up new environment variable
+        from app.config import Settings
+
+        test_settings = Settings()
+
+        with patch("app.db.settings", test_settings):
+            # Initialize database
+            await init_db()
+
+            # Create sample user with unique username
+            async with async_session() as session:
+                unique_suffix = str(int(time.time() * 1000))
+                username = f"sampleuser_{unique_suffix}"
+                email = f"sample_{unique_suffix}@example.com"
+
+                # Import get_password_hash for proper password hashing
+                from app.auth import get_password_hash
+
+                hashed_password = get_password_hash("sample_password")
+
+                user = await db_service.create_user(
+                    session, username, email, hashed_password
+                )
+                yield user

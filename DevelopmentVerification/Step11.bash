@@ -220,18 +220,18 @@ def check_imports_in_file(filepath, expected_imports):
 main_imports = check_imports_in_file('app/main.py', [
     'from app.services import database as db_service',
     'from app.db import async_session, init_db',
-    'authenticate_user_from_db',
-    'create_user_in_db',
-    'get_user_by_token_from_db'
+    'authenticate_user',
+    'create_user',
+    'get_user_by_token'
 ])
 
 print(f'  Found in main.py: {len(main_imports)} database integrations')
 
 # Check auth.py for database service imports  
 auth_imports = check_imports_in_file('app/auth.py', [
-    'async def get_user_from_db',
-    'async def authenticate_user_from_db', 
-    'async def create_user_in_db',
+    'async def get_user',
+    'async def authenticate_user', 
+    'async def create_user',
     'from app.services import database as db_service'
 ])
 
@@ -243,38 +243,7 @@ else:
     print('  ⚠ Service layer integration may be incomplete')
 "
 
-# Test 8: Test database fallback behavior
-echo "✅ Testing database fallback behavior..."
-python3 -c "
-import os
-import tempfile
-from unittest.mock import patch
-from app.auth import get_user_from_db, create_user_in_db
-import asyncio
-
-async def test_fallback():
-    # Test that functions gracefully fall back to JSON when database fails
-    try:
-        # This should fall back to JSON if database is not available
-        user = await get_user_from_db('nonexistent_user')
-        print('  ✓ Database fallback working (returned None for missing user)')
-        
-        # Test user creation fallback
-        try:
-            with patch('app.db.async_session', side_effect=Exception('DB unavailable')):
-                # This should fall back to JSON file creation
-                new_user = await create_user_in_db('fallback_test', 'password123')
-                print('  ✓ User creation fallback working')
-        except Exception as e:
-            print(f'  ✓ Fallback behavior detected: {str(e)[:50]}...')
-            
-    except Exception as e:
-        print(f'  ⚠ Fallback test had issues: {e}')
-
-asyncio.run(test_fallback())
-"
-
-# Test 9: Test FastAPI app imports with database
+# Test 8: Test FastAPI app imports with database
 echo "✅ Testing FastAPI app with database integration..."
 python3 -c "
 from app.main import app
@@ -289,7 +258,7 @@ except Exception as e:
     print(f'  ✓ App imports successful (database may fall back to JSON): {e}')
 "
 
-# Test 10: Run existing test suite to ensure no regressions
+# Test 9: Run existing test suite to ensure no regressions
 echo "✅ Testing existing test suite for regressions..."
 TEST_RESULT=$(python3 -m pytest tests/ -q --tb=no 2>/dev/null | tail -1)
 if [[ $TEST_RESULT == *"passed"* ]]; then
@@ -307,8 +276,346 @@ echo "✅ Migration system working"
 echo "✅ Database tables created with proper structure"
 echo "✅ Database service layer functional"
 echo "✅ FastAPI database integration working"
-echo "✅ Database fallback behavior functional"
 echo "✅ Existing test suite maintains compatibility"
 echo ""
-echo "Phase D: FastAPI now uses database-first storage with JSON fallback."
-echo "The application runtime path uses the database while maintaining full backward compatibility." 
+
+# ============================================================================
+# PHASE E: FULL DATABASE CUT-OVER VERIFICATION
+# ============================================================================
+
+echo "🔍 Phase E: Full Database Cut-Over Verification"
+echo "==============================================="
+
+# Test 1: Verify no JSON/JSONL files exist
+echo "✅ Testing legacy file removal..."
+if find . -name '*.jsonl' -o -name 'users.json' | grep -q .; then
+    echo "  ❌ Legacy JSON/JSONL files found:"
+    find . -name '*.jsonl' -o -name 'users.json'
+    exit 1
+else
+    echo "  ✓ No legacy JSON/JSONL files found"
+fi
+
+# Test 2: Verify logs directory doesn't exist
+echo "✅ Testing logs directory removal..."
+if [ -d "logs" ]; then
+    echo "  ❌ Legacy logs directory still exists"
+    exit 1
+else
+    echo "  ✓ Legacy logs directory removed"
+fi
+
+# Test 3: Test database-only authentication
+echo "✅ Testing database-only authentication..."
+python3 -c "
+import asyncio
+from fastapi.testclient import TestClient
+from app.main import create_app
+
+app = create_app(testing=True)
+
+with TestClient(app) as client:
+    # Test registration (database-only)
+    response = client.post('/auth/register', json={
+        'username': 'phase_e_test_user',
+        'password': 'testpass123',
+        'email': 'phase_e@test.com'
+    })
+    assert response.status_code == 200
+    token = response.json()['access_token']
+    
+    # Test login (database-only)
+    response = client.post('/auth/login', data={
+        'username': 'phase_e_test_user',
+        'password': 'testpass123'
+    })
+    assert response.status_code == 200
+    
+    print('  ✓ Database-only authentication working')
+"
+
+# Test 4: Test WebSocket database-only operations
+echo "✅ Testing WebSocket database-only operations..."
+python3 -c "
+from fastapi.testclient import TestClient
+from app.main import create_app
+
+app = create_app(testing=True)
+
+with TestClient(app) as client:
+    # Register user and get token
+    response = client.post('/auth/register', json={
+        'username': 'ws_phase_e_user',
+        'password': 'testpass123',
+        'email': 'ws_phase_e@test.com'
+    })
+    assert response.status_code == 200
+    token = response.json()['access_token']
+    
+    # Test WebSocket (database-only message storage)
+    with client.websocket_connect(f'/ws/ws_phase_e_user?token={token}') as websocket:
+        websocket.send_json({'message': 'Database-only test message'})
+        data = websocket.receive_json()
+        assert data['user'] == 'ws_phase_e_user'
+        assert data['message'] == 'Database-only test message'
+    
+    print('  ✓ WebSocket database-only operations working')
+"
+
+# Test 5: Test gift events database-only
+echo "✅ Testing gift events database-only..."
+python3 -c "
+from fastapi.testclient import TestClient
+from app.main import create_app
+
+app = create_app(testing=True)
+
+with TestClient(app) as client:
+    # Test gift endpoint (database-only)
+    response = client.post('/api/gift', json={
+        'from': 'phase_e_gift_user',
+        'gift_id': 1,
+        'amount': 5
+    })
+    assert response.status_code == 200
+    
+    print('  ✓ Gift events database-only operations working')
+"
+
+# Test 6: Test admin actions database-only
+echo "✅ Testing admin actions database-only..."
+python3 -c "
+from fastapi.testclient import TestClient
+from app.main import create_app
+
+app = create_app(testing=True)
+
+with TestClient(app) as client:
+    # Register admin user
+    response = client.post('/auth/register', json={
+        'username': 'admin_phase_e_user',
+        'password': 'testpass123',
+        'email': 'admin_phase_e@test.com'
+    })
+    assert response.status_code == 200
+    token = response.json()['access_token']
+    
+    # Test admin actions (database-only)
+    response = client.post('/api/admin/kick', 
+        json={'username': 'target_user'},
+        headers={'Authorization': f'Bearer {token}'}
+    )
+    assert response.status_code == 200
+    
+    print('  ✓ Admin actions database-only operations working')
+"
+
+# Test 7: Test dashboard database integration
+echo "✅ Testing dashboard database integration..."
+python3 -c "
+import sys
+from pathlib import Path
+sys.path.append(str(Path('dashboard').resolve()))
+
+try:
+    # Import dashboard modules to verify database integration
+    from dashboard.app import fetch_database_messages, get_database_engine
+    import asyncio
+    
+    # Test database engine creation
+    engine = get_database_engine()
+    assert engine is not None
+    
+    print('  ✓ Dashboard database integration working')
+except Exception as e:
+    print(f'  ⚠ Dashboard database integration may have issues: {e}')
+"
+
+# Test 8: Verify no JSON files created during runtime
+echo "✅ Testing runtime - no JSON files should be created..."
+python3 -c "
+from fastapi.testclient import TestClient
+from app.main import create_app
+
+# Create test app and run operations that previously created JSON files
+app = create_app(testing=True)
+
+with TestClient(app) as client:
+    # Register user
+    response = client.post('/auth/register', json={
+        'username': 'runtime_test_user',
+        'password': 'testpass123',
+        'email': 'runtime@test.com'
+    })
+    assert response.status_code == 200
+    token = response.json()['access_token']
+    
+    # Test WebSocket (would previously create JSONL logs)
+    with client.websocket_connect(f'/ws/runtime_test_user?token={token}') as websocket:
+        websocket.send_json({'message': 'Test message'})
+        data = websocket.receive_json()
+        assert data['user'] == 'runtime_test_user'
+    
+    # Test gift endpoint (would previously create JSONL logs)
+    response = client.post('/api/gift', json={
+        'from': 'runtime_test_user',
+        'gift_id': 1,
+        'amount': 5
+    })
+    assert response.status_code == 200
+    
+    # Test admin actions (would previously create JSONL logs)
+    response = client.post('/api/admin/kick', 
+        json={'username': 'target_user'},
+        headers={'Authorization': f'Bearer {token}'}
+    )
+    assert response.status_code == 200
+
+print('  ✓ Runtime test completed - database-only operations working')
+"
+
+# Test 9: Final check - no JSON files created after tests
+echo "✅ Final check for JSON files after runtime tests..."
+if find . -name '*.jsonl' -o -name 'users.json' | grep -q .; then
+    echo "  ❌ JSON/JSONL files created during runtime:"
+    find . -name '*.jsonl' -o -name 'users.json'
+    exit 1
+else
+    echo "  ✓ No JSON/JSONL files created during runtime"
+fi
+
+# Test 10: Full test suite with database backend
+echo "✅ Running full test suite with database backend..."
+TEST_COUNT=$(python3 -m pytest --collect-only 2>/dev/null | grep "collected" | grep -o "[0-9]\+" | head -1)
+if python3 -m pytest -q; then
+    echo "  ✓ All $TEST_COUNT tests passed with database backend"
+else
+    echo "  ❌ Some tests failed with database backend"
+    exit 1
+fi
+
+# Test 11: Code quality checks
+echo "✅ Running code quality checks..."
+if ruff check --fix; then
+    echo "  ✓ Ruff checks passed"
+else
+    echo "  ❌ Ruff checks failed"
+    exit 1
+fi
+
+if black --check .; then
+    echo "  ✓ Black formatting check passed"
+else
+    echo "  ❌ Black formatting check failed"
+    exit 1
+fi
+
+echo ""
+echo "🎉 Phase E: Full Database Cut-Over Verification Complete!"
+echo "========================================================"
+echo "✅ All legacy JSON/JSONL code paths removed"
+echo "✅ Database-only architecture confirmed"
+echo "✅ No file-based persistence remaining"
+echo "✅ All tests passing with database backend"
+echo "✅ Code quality checks passed"
+echo ""
+
+# ============================================================================
+# PHASE F: LEGACY PURGE VERIFICATION
+# ============================================================================
+
+echo "🔍 Phase F: Legacy Purge Verification"
+echo "======================================"
+
+# Test 1: Absolute verification - no legacy files exist anywhere
+echo "✅ Testing absolute legacy file removal..."
+if find . -name '*.jsonl' -o -name 'users.json' | grep -v ".venv" | grep -q .; then
+    echo "  ❌ Legacy files still exist:"
+    find . -name '*.jsonl' -o -name 'users.json' | grep -v ".venv"
+    exit 1
+else
+    echo "  ✓ No legacy JSON/JSONL files found anywhere"
+fi
+
+# Test 2: Verify no legacy environment variables in config
+echo "✅ Testing configuration cleanup..."
+python3 -c "
+from app.config import Settings
+import os
+
+# Check that legacy env vars are not used
+settings = Settings()
+config_dict = settings.model_dump()
+
+# Should not have legacy file-based settings
+legacy_keys = ['users_file', 'logs_dir', 'safestream_users_file', 'safestream_logs_dir']
+for key in legacy_keys:
+    if key.lower() in [k.lower() for k in config_dict.keys()]:
+        raise Exception(f'Legacy configuration key found: {key}')
+
+# Should have database settings
+if not hasattr(settings, 'database_url'):
+    raise Exception('Database URL not configured')
+
+print('  ✓ Configuration cleaned - only database settings remain')
+"
+
+# Test 3: API startup test without any legacy dependencies
+echo "✅ Testing API startup with database-only mode..."
+python3 -c "
+import asyncio
+from app.main import create_app
+from app.db import init_db
+
+async def test_startup():
+    # Initialize database
+    await init_db()
+    
+    # Create app (should not reference any JSON files)
+    app = create_app(testing=True)
+    
+    # Verify app can start without any file dependencies
+    assert app is not None
+    print('  ✓ API starts successfully in database-only mode')
+
+asyncio.run(test_startup())
+"
+
+# Test 4: Verify documentation updated
+echo "✅ Testing documentation cleanup..."
+if grep -q "SAFESTREAM_USERS_FILE\|JSONL.*logs\|logs.*JSONL" README.md; then
+    echo "  ❌ Legacy references found in README.md"
+    exit 1
+else
+    echo "  ✓ Documentation cleaned of legacy references"
+fi
+
+# Test 5: Final comprehensive test run
+echo "✅ Running comprehensive test suite..."
+TEST_COUNT=$(python3 -m pytest --collect-only 2>/dev/null | grep "collected" | grep -o "[0-9]\+" | head -1)
+if python3 -m pytest -q; then
+    echo "  ✓ All $TEST_COUNT tests passed with database-only backend"
+    echo "  ✓ Database tests working with proper fixtures"
+else
+    echo "  ❌ Some tests failed in database-only mode"
+    exit 1
+fi
+
+echo ""
+echo "🎉 Phase F: Legacy Purge Verification Complete!"
+echo "==============================================="
+echo "✅ Legacy purged - DB-only mode verified"
+echo "✅ Zero JSON/JSONL file dependencies"
+echo "✅ Configuration cleaned of legacy settings"
+echo "✅ Documentation updated"
+echo "✅ All $TEST_COUNT tests passing in database-only mode"
+echo ""
+echo "🚀 SafeStream Stage 11 - Complete Database Integration!"
+echo "   Phase A: ✅ Database foundation established"
+echo "   Phase B: ✅ ORM models with relationships and indexing"
+echo "   Phase C: ✅ Database service layer with async SQLAlchemy 2.0"
+echo "   Phase D: ✅ FastAPI integration with database-first + JSON fallback"
+echo "   Phase E: ✅ Full database cut-over with zero legacy dependencies"
+echo "   Phase F: ✅ Legacy purge - 100% database-native architecture"
+echo ""
+echo "🏆 Production-ready database architecture achieved!"

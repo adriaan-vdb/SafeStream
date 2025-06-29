@@ -1,8 +1,7 @@
 """SafeStream FastAPI main application.
 
 Implements WebSocket chat gateway with real-time moderation and broadcasting.
-Includes JWT authentication for secure user access.
-TODO(stage-7): Add database logging and JWT authentication
+Includes JWT authentication and database-backed persistence.
 """
 
 import asyncio
@@ -31,11 +30,11 @@ from fastapi.staticfiles import StaticFiles
 from app import events, moderation, schemas
 from app.auth import (
     User,
-    authenticate_user_from_db,
+    authenticate_user,
     create_access_token,
-    create_user_in_db,
+    create_user,
     get_current_active_user,
-    get_user_by_token_from_db,
+    get_user_by_token,
 )
 from app.db import async_session, init_db
 from app.metrics import metrics
@@ -72,11 +71,8 @@ async def lifespan(app: FastAPI):
     """Manage application lifespan events."""
     # Startup
     # Initialize database
-    try:
-        await init_db()
-        logging.info("Database initialized successfully")
-    except Exception as e:
-        logging.warning(f"Database initialization failed, falling back to JSON: {e}")
+    await init_db()
+    logging.info("Database initialized successfully")
 
     # Read GIFT_INTERVAL_SECS from environment or use default
     gift_interval = int(os.getenv("GIFT_INTERVAL_SECS", "15"))
@@ -137,31 +133,6 @@ def create_app(testing: bool = False) -> FastAPI:
     # Mount static files for frontend
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
-    # Configure logging
-    def setup_logging():
-        """Setup rotating JSONL logging for chat messages."""
-        logs_dir = Path("logs")
-        logs_dir.mkdir(exist_ok=True)
-
-        # Create rotating file handler for chat messages
-        today = datetime.now(UTC).strftime("%Y-%m-%d")
-        log_file = logs_dir / f"chat_{today}.jsonl"
-
-        # Configure JSONL logger
-        chat_logger = logging.getLogger("chat")
-        chat_logger.setLevel(logging.INFO)
-
-        # Rotating file handler: 10MB max size, keep 10 backup files
-        handler = logging.handlers.RotatingFileHandler(
-            log_file, maxBytes=10 * 1024 * 1024, backupCount=10
-        )
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        chat_logger.addHandler(handler)
-
-        return chat_logger
-
-    chat_logger = setup_logging()
-
     @app.get("/")
     async def root():
         """Root endpoint returning basic status."""
@@ -201,7 +172,7 @@ def create_app(testing: bool = False) -> FastAPI:
             JWT token for the newly created user
         """
         try:
-            user = await create_user_in_db(
+            user = await create_user(
                 username=user_data.username,
                 password=user_data.password,
                 email=user_data.email,
@@ -229,7 +200,7 @@ def create_app(testing: bool = False) -> FastAPI:
         Returns:
             JWT token for authenticated user
         """
-        user = await authenticate_user_from_db(form_data.username, form_data.password)
+        user = await authenticate_user(form_data.username, form_data.password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -270,7 +241,7 @@ def create_app(testing: bool = False) -> FastAPI:
         - Message parsing and validation
         - Moderation pipeline integration
         - Broadcasting to all connected clients
-        - JSONL logging of all messages
+        - Database logging of all messages and events
         - Metrics tracking
         """
         # Get JWT token from query parameter
@@ -280,7 +251,7 @@ def create_app(testing: bool = False) -> FastAPI:
             return
 
         # Validate JWT token
-        user = await get_user_by_token_from_db(token)
+        user = await get_user_by_token(token)
         if not user or user.username != username:
             await websocket.close(code=1008, reason="Invalid authentication")
             return
@@ -323,34 +294,25 @@ def create_app(testing: bool = False) -> FastAPI:
                         ts=datetime.now(UTC),
                     )
 
-                    # Save message to database (with JSON fallback)
-                    try:
-                        async with async_session() as session:
-                            # Get or create user for database
-                            user = await db_service.get_user_by_username(
-                                session, username
+                    # Save message to database
+                    async with async_session() as session:
+                        # Get or create user for database
+                        user = await db_service.get_user_by_username(session, username)
+                        if not user:
+                            # Create user with temporary password (they'll need to register properly)
+                            user = await db_service.create_user(
+                                session, username, None, "temp_websocket_user"
                             )
-                            if not user:
-                                # Create user with temporary password (they'll need to register properly)
-                                user = await db_service.create_user(
-                                    session, username, None, "temp_websocket_user"
-                                )
 
-                            # Save message to database
-                            await db_service.save_message(
-                                session,
-                                user.id,
-                                chat_message.message,
-                                toxic,
-                                score,
-                                "chat",
-                            )
-                    except Exception as db_error:
-                        # Fallback to JSONL logging if database fails
-                        logging.warning(
-                            f"Database save failed, using JSONL fallback: {db_error}"
+                        # Save message to database
+                        await db_service.save_message(
+                            session,
+                            user.id,
+                            chat_message.message,
+                            toxic,
+                            score,
+                            "chat",
                         )
-                        chat_logger.info(outgoing_message.model_dump_json())
 
                     # Broadcast to all connected clients
                     message_json = outgoing_message.model_dump_json()
@@ -409,29 +371,22 @@ def create_app(testing: bool = False) -> FastAPI:
             gift_event_dict = gift_event.model_dump(by_alias=True)
             gift_event_dict["ts"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
-            # Save gift event to database (with JSON fallback)
-            try:
-                async with async_session() as session:
-                    # Get or create user for database
-                    user = await db_service.get_user_by_username(
-                        session, gift_event.from_user
-                    )
-                    if not user:
-                        # Create user with temporary password
-                        user = await db_service.create_user(
-                            session, gift_event.from_user, None, "temp_gift_user"
-                        )
-
-                    # Save gift event to database
-                    await db_service.save_gift_event(
-                        session, user.id, str(gift_event.gift_id), gift_event.amount
-                    )
-            except Exception as db_error:
-                # Fallback to JSONL logging if database fails
-                logging.warning(
-                    f"Database gift save failed, using JSONL fallback: {db_error}"
+            # Save gift event to database
+            async with async_session() as session:
+                # Get or create user for database
+                user = await db_service.get_user_by_username(
+                    session, gift_event.from_user
                 )
-                chat_logger.info(json.dumps(gift_event_dict))
+                if not user:
+                    # Create user with temporary password
+                    user = await db_service.create_user(
+                        session, gift_event.from_user, None, "temp_gift_user"
+                    )
+
+                # Save gift event to database
+                await db_service.save_gift_event(
+                    session, user.id, str(gift_event.gift_id), gift_event.amount
+                )
 
             # Broadcast to all connected WebSocket clients using events module
             await events.broadcast_gift(connected, gift_event_dict)
@@ -463,46 +418,32 @@ def create_app(testing: bool = False) -> FastAPI:
                 pass  # Connection might already be closed
             del connected[target_username]
 
-        # Log the kick action to database (with JSON fallback)
-        try:
-            async with async_session() as session:
-                # Get admin user from database
-                admin_user = await db_service.get_user_by_username(
-                    session, current_user.username
-                )
-                if not admin_user:
-                    # Create admin user if not exists
-                    admin_user = await db_service.create_user(
-                        session, current_user.username, None, "temp_admin_user"
-                    )
-
-                # Get target user ID if exists
-                target_user = await db_service.get_user_by_username(
-                    session, target_username
-                )
-                target_user_id = target_user.id if target_user else None
-
-                # Log admin action
-                await db_service.log_admin_action(
-                    session,
-                    admin_user.id,
-                    "kick",
-                    target_user_id,
-                    f"Kicked user: {target_username}",
-                )
-        except Exception as db_error:
-            # Fallback to JSONL logging if database fails
-            logging.warning(
-                f"Database admin action save failed, using JSONL fallback: {db_error}"
+        # Log the kick action to database
+        async with async_session() as session:
+            # Get admin user from database
+            admin_user = await db_service.get_user_by_username(
+                session, current_user.username
             )
-            kick_log = {
-                "type": "admin_action",
-                "action": "kick",
-                "admin_user": current_user.username,
-                "target_user": target_username,
-                "ts": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            }
-            chat_logger.info(json.dumps(kick_log))
+            if not admin_user:
+                # Create admin user if not exists
+                admin_user = await db_service.create_user(
+                    session, current_user.username, None, "temp_admin_user"
+                )
+
+            # Get target user ID if exists
+            target_user = await db_service.get_user_by_username(
+                session, target_username
+            )
+            target_user_id = target_user.id if target_user else None
+
+            # Log admin action
+            await db_service.log_admin_action(
+                session,
+                admin_user.id,
+                "kick",
+                target_user_id,
+                f"Kicked user: {target_username}",
+            )
 
         return {"status": "ok", "message": f"Kicked user: {target_username}"}
 
@@ -516,46 +457,32 @@ def create_app(testing: bool = False) -> FastAPI:
         if not target_username:
             raise HTTPException(status_code=400, detail="Username required")
 
-        # Log the mute action to database (with JSON fallback)
-        try:
-            async with async_session() as session:
-                # Get admin user from database
-                admin_user = await db_service.get_user_by_username(
-                    session, current_user.username
-                )
-                if not admin_user:
-                    # Create admin user if not exists
-                    admin_user = await db_service.create_user(
-                        session, current_user.username, None, "temp_admin_user"
-                    )
-
-                # Get target user ID if exists
-                target_user = await db_service.get_user_by_username(
-                    session, target_username
-                )
-                target_user_id = target_user.id if target_user else None
-
-                # Log admin action
-                await db_service.log_admin_action(
-                    session,
-                    admin_user.id,
-                    "mute",
-                    target_user_id,
-                    f"Muted user: {target_username}",
-                )
-        except Exception as db_error:
-            # Fallback to JSONL logging if database fails
-            logging.warning(
-                f"Database admin action save failed, using JSONL fallback: {db_error}"
+        # Log the mute action to database
+        async with async_session() as session:
+            # Get admin user from database
+            admin_user = await db_service.get_user_by_username(
+                session, current_user.username
             )
-            mute_log = {
-                "type": "admin_action",
-                "action": "mute",
-                "admin_user": current_user.username,
-                "target_user": target_username,
-                "ts": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            }
-            chat_logger.info(json.dumps(mute_log))
+            if not admin_user:
+                # Create admin user if not exists
+                admin_user = await db_service.create_user(
+                    session, current_user.username, None, "temp_admin_user"
+                )
+
+            # Get target user ID if exists
+            target_user = await db_service.get_user_by_username(
+                session, target_username
+            )
+            target_user_id = target_user.id if target_user else None
+
+            # Log admin action
+            await db_service.log_admin_action(
+                session,
+                admin_user.id,
+                "mute",
+                target_user_id,
+                f"Muted user: {target_username}",
+            )
 
         return {"status": "ok", "message": f"Muted user: {target_username}"}
 
@@ -566,39 +493,26 @@ def create_app(testing: bool = False) -> FastAPI:
         """Reset metrics (admin only)."""
         metrics.reset()
 
-        # Log the reset action to database (with JSON fallback)
-        try:
-            async with async_session() as session:
-                # Get admin user from database
-                admin_user = await db_service.get_user_by_username(
-                    session, current_user.username
-                )
-                if not admin_user:
-                    # Create admin user if not exists
-                    admin_user = await db_service.create_user(
-                        session, current_user.username, None, "temp_admin_user"
-                    )
-
-                # Log admin action
-                await db_service.log_admin_action(
-                    session,
-                    admin_user.id,
-                    "reset_metrics",
-                    None,
-                    "Reset system metrics",
-                )
-        except Exception as db_error:
-            # Fallback to JSONL logging if database fails
-            logging.warning(
-                f"Database admin action save failed, using JSONL fallback: {db_error}"
+        # Log the reset action to database
+        async with async_session() as session:
+            # Get admin user from database
+            admin_user = await db_service.get_user_by_username(
+                session, current_user.username
             )
-            reset_log = {
-                "type": "admin_action",
-                "action": "reset_metrics",
-                "admin_user": current_user.username,
-                "ts": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            }
-            chat_logger.info(json.dumps(reset_log))
+            if not admin_user:
+                # Create admin user if not exists
+                admin_user = await db_service.create_user(
+                    session, current_user.username, None, "temp_admin_user"
+                )
+
+            # Log admin action
+            await db_service.log_admin_action(
+                session,
+                admin_user.id,
+                "reset_metrics",
+                None,
+                "Reset system metrics",
+            )
 
         return {"status": "metrics reset"}
 

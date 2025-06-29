@@ -82,4 +82,4 @@ class UserInfo(BaseModel):
 
 
 # TODO(stage-6): Add database models for persistence
-# TODO(stage-6): Add logging schemas for JSONL output
+# Database logging schemas implemented in db/models.py

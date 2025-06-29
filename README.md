@@ -13,7 +13,7 @@
 | Moderation | Detoxify (plug‑in interface for any `text-classification` model) |
 | Dual UI    | Vanilla HTML/JS client with animated gift badges • Full-featured Streamlit moderator dashboard |
 | Events     | Automated random gift producer + API‑triggered gift events      |
-| Storage    | In‑memory queue • JSONL logs • Database integration ready (Stage 11) |
+| Storage    | SQLAlchemy database • ACID transactions • Real-time queries |
 | DevOps     | Docker + Compose • GitHub Actions CI • Locust load tests         |
 
 ---
@@ -27,7 +27,7 @@
 | **Detoxify**            | Small, pre‑trained, fast CPU inference               | English‑centric, no incremental training         | Perspective API (external calls), custom fine‑tune BERT |
 | **Vanilla HTML/JS**     | Zero build tooling, immediate demo                   | Not reactive; no TypeScript types                | React/Vite, SvelteKit                                   |
 | **Streamlit**           | Rich dashboards with real-time updates, minimal code | Limited theming, heavier process                 | Dash, Panel, plain React admin                         |
-| **JSONL logs + SQLite** | Human‑readable, minimal ops, database ready          | No HA, memory bound (transitioning to DB)       | PostgreSQL, Redis Streams                               |
+| **SQLAlchemy + SQLite** | ACID compliance, real-time queries, production ready | Single node (can migrate to PostgreSQL)         | PostgreSQL, Redis Streams                               |
 | **Docker/Compose**      | Single‑command setup, cross‑platform                 | Adds slight build overhead                       | Nix, Podman                                             |
 | **Locust**              | Simple Python load scripts                           | Requires separate worker processes               | k6 (JS), Vegeta                                        |
 
@@ -51,8 +51,8 @@ flowchart TD
     DX[Detoxify]
     GIFT[Gift Producer]
     MET[Metrics API]
-    LOG[(Rotating JSONL)]
-    DB[(Database - Stage 11)]
+    DB[(SQLAlchemy)]
+
   end
 
   U1 -- "ws + JWT" --> GW
@@ -140,7 +140,7 @@ The system includes pre-configured demo accounts for testing:
 SafeStream includes a comprehensive moderator dashboard built with Streamlit for real-time monitoring, moderation, and analytics.
 
 ### Features
-- **Real-time Data Sources**: Database (ready for Stage 11), JSONL log tailing, or metrics API polling
+- **Real-time Data Sources**: Database queries, metrics API polling, and live analytics
 - **Live Metrics**: Viewer count, total gifts, toxicity percentage with auto-refresh
 - **Message Management**: Recent messages table with filtering by username and toxicity
 - **Analytics Visualizations**: 
@@ -176,7 +176,8 @@ All admin endpoints require JWT authentication via `Authorization: Bearer <token
 | --------------------- | ------- | -------------------------------- |
 | `JWT_SECRET_KEY`      | `your-secret-key-change-in-production` | JWT signing secret |
 | `JWT_EXPIRE_MINUTES`  | 30      | JWT token expiry time           |
-| `SAFESTREAM_USERS_FILE` | `users.json` | User storage file path    |
+| `DATABASE_URL`        | `sqlite+aiosqlite:///./data/safestream.db` | Database connection URL |
+| `DB_ECHO`             | `false` | Enable SQLAlchemy query logging |
 | `APP_PORT`            | 8000    | FastAPI + WebSocket server      |
 | `DASH_PORT`           | 8501    | Streamlit dashboard             |
 | `GIFT_INTERVAL_SECS`  | 15      | Seconds between random gifts    |
@@ -185,15 +186,6 @@ All admin endpoints require JWT authentication via `Authorization: Bearer <token
 | `MAX_CONNECTIONS`     | 1000    | Maximum WebSocket connections   |
 | `MAX_USERNAME_LENGTH` | 50      | Maximum username length         |
 | `CLEANUP_INTERVAL`    | 300     | Connection cleanup interval (seconds) |
-
-### Database Configuration (Stage 11)
-```bash
-# Database settings for upcoming database integration
-DATABASE_URL=sqlite+aiosqlite:///data/safestream.db
-DATABASE_ECHO=false
-DATABASE_POOL_SIZE=5
-DATABASE_MAX_OVERFLOW=10
-```
 
 ---
 
@@ -278,21 +270,24 @@ GET /metrics
 
 ---
 
-## 10. Logging & Persistence
+## 10. Database & Persistence
 
 ### Current Implementation
-- **JSONL Logs**: Every message and moderation decision appended to `logs/chat_YYYY‑MM‑DD.jsonl`
-- **Log Rotation**: 10 MiB files with 10 backup files using RotatingFileHandler
-- **Structured Data**: All events logged in JSON format matching API protocols
-- **Dashboard Integration**: Real-time log tailing for dashboard updates
-
-### Database Integration (Stage 11 - Ready for Implementation)
-- **SQLAlchemy Models**: User, Message, GiftEvent, AdminAction tables designed
+- **SQLAlchemy Database**: All messages, users, gifts, and admin actions stored in database
 - **Async Support**: Full async/await database operations with connection pooling
-- **Migration Strategy**: Dual storage (JSONL + DB) during transition
-- **Data Preservation**: Complete migration scripts for existing JSONL data
+- **ACID Transactions**: Guaranteed data consistency and integrity
+- **Real-time Queries**: Dashboard reads directly from database for live analytics
 
-See `DevelopmentVerification/Step11.md` for detailed database implementation plan.
+### Database Schema
+- **Users**: Authentication, profiles, and user management
+- **Messages**: Chat messages with toxicity scores and timestamps
+- **Gift Events**: Gift transactions and broadcasting history
+- **Admin Actions**: Moderation actions and audit trail
+
+### Migration from Legacy Files
+- **Complete**: All JSON/JSONL file storage has been removed
+- **Database-Only**: 100% SQLAlchemy-backed persistence
+- **Production Ready**: ACID compliance, connection pooling, and proper indexing
 
 ---
 
@@ -350,13 +345,11 @@ GitHub Actions pipeline runs on every push and PR:
 - **Stage 8**: Load testing and performance optimization
 - **Stage 9**: Streamlit dashboard with real-time monitoring
 - **Stage 10**: Complete JWT authentication system
-
-### 🚧 Current Stage
-- **Stage 11**: Database Integration (Implementation ready)
-  - SQLAlchemy models and async operations
-  - Migration from JSONL to database storage
-  - Dashboard database integration with fallback
-  - User authentication database migration
+- **Stage 11**: Full Database Integration
+  - SQLAlchemy models with relationships and indexing
+  - Complete migration from JSON/JSONL to database-only
+  - Database-backed authentication and persistence
+  - Dashboard integration with real-time database queries
 
 ### 🔮 Future Stages
 - **Stage 12**: Advanced Analytics & Reporting
@@ -412,12 +405,12 @@ SafeStream/
 ├── load/                           # Locust load testing
 │   └── locustfile.py              # 200 user / 500 msg/s load test
 │
-├── logs/                           # Rotating JSONL logs (git-ignored)
+├── data/                           # SQLite database files (git-ignored)
 │   └── .gitkeep
 │
 ├── scripts/                        # Utility scripts
 │   ├── migrate_users.py            # User migration script (Stage 11)
-│   ├── migrate_jsonl.py            # JSONL to database migration (Stage 11)
+│   ├── database_utils.py           # Database utilities and maintenance
 │   └── test-ci.sh                  # CI pipeline simulation
 │
 ├── Dockerfile                      # Multi-stage production container
