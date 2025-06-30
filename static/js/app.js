@@ -96,6 +96,118 @@ function setupEventListeners() {
     document.getElementById('messageInput').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
+    
+    // Heart reactions - send gifts when clicked
+    setupHeartReactions();
+}
+
+function setupHeartReactions() {
+    const heartReactions = document.querySelectorAll('.heart-reaction');
+    
+    // Map each heart emoji to a gift_id
+    const heartGiftMap = {
+        '❤️': 1,    // Red heart
+        '💖': 2,    // Sparkling heart
+        '💕': 3,    // Two hearts
+        '💗': 4,    // Growing heart
+        '💓': 5     // Beating heart
+    };
+    
+    heartReactions.forEach(heart => {
+        heart.addEventListener('click', () => {
+            const heartEmoji = heart.textContent.trim();
+            const giftId = heartGiftMap[heartEmoji];
+            
+            if (giftId && username) {
+                sendGift(giftId, heartEmoji);
+                
+                // Add visual feedback
+                animateHeartClick(heart);
+            }
+        });
+        
+        // Add hover effect styling
+        heart.style.cursor = 'pointer';
+        heart.style.transition = 'all 0.2s ease';
+        heart.addEventListener('mouseenter', () => {
+            heart.style.transform = 'scale(1.2)';
+            heart.style.filter = 'brightness(1.3)';
+        });
+        heart.addEventListener('mouseleave', () => {
+            heart.style.transform = 'scale(1)';
+            heart.style.filter = 'brightness(1)';
+        });
+    });
+}
+
+function animateHeartClick(heartElement) {
+    // Add a pulsing animation when heart is clicked
+    heartElement.style.transform = 'scale(1.5)';
+    heartElement.style.filter = 'brightness(1.5) drop-shadow(0 0 10px currentColor)';
+    
+    setTimeout(() => {
+        heartElement.style.transform = 'scale(1)';
+        heartElement.style.filter = 'brightness(1)';
+    }, 200);
+    
+    // Create floating heart animation
+    createFloatingHeart(heartElement);
+}
+
+function createFloatingHeart(sourceElement) {
+    const floatingHeart = document.createElement('div');
+    floatingHeart.textContent = sourceElement.textContent;
+    floatingHeart.style.position = 'absolute';
+    floatingHeart.style.fontSize = '24px';
+    floatingHeart.style.pointerEvents = 'none';
+    floatingHeart.style.zIndex = '1000';
+    
+    // Position relative to the source heart
+    const rect = sourceElement.getBoundingClientRect();
+    floatingHeart.style.left = rect.left + 'px';
+    floatingHeart.style.top = rect.top + 'px';
+    
+    // Animation styles
+    floatingHeart.style.animation = 'floatUp 2s ease-out forwards';
+    
+    document.body.appendChild(floatingHeart);
+    
+    // Remove after animation
+    setTimeout(() => {
+        floatingHeart.remove();
+    }, 2000);
+}
+
+async function sendGift(giftId, heartEmoji) {
+    if (!username) {
+        console.error('Cannot send gift: no username');
+        return;
+    }
+    
+    try {
+        const giftData = {
+            from: username,
+            gift_id: giftId,
+            amount: 1
+        };
+        
+        const response = await fetch('/api/gift', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(giftData)
+        });
+        
+        if (response.ok) {
+            console.log(`Gift sent successfully: ${heartEmoji} (ID: ${giftId})`);
+        } else {
+            console.error('Failed to send gift:', response.status, response.statusText);
+        }
+    } catch (error) {
+        console.error('Error sending gift:', error);
+    }
 }
 
 function handleLogout() {
