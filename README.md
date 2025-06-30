@@ -2,11 +2,10 @@
 
 ## Platform Demo
 
-<video width="100%" controls>
-  <source src="../Showcase/ML%20Moderation%20Showcase.mov" type="video/quicktime">
-  <source src="../Showcase/ML%20Moderation%20Showcase.mov" type="video/mp4">
-  Your browser does not support the video tag. [Download the demo video](../Showcase/ML%20Moderation%20Showcase.mov)
-</video>
+![Architecture Diagram](SHOWCASE/ML_Moderation.png)
+
+![Moderation Demo](SHOWCASE/ML_Moderation_GIF.gif)
+
 
 *Live demonstration of SafeStream's AI-powered content moderation in action*
 
