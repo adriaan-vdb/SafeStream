@@ -158,11 +158,29 @@ def authenticate_admin(username: str, password: str) -> tuple[bool, str | None]:
         )
         if response.ok:
             data = response.json()
-            return True, data.get("access_token")
+            token = data.get("access_token")
+            if token:
+                return True, token
+            else:
+                st.sidebar.error("❌ No token received from server")
+                return False, None
         else:
+            # More specific error messages
+            if response.status_code == 401:
+                st.sidebar.error("❌ Invalid username or password")
+            elif response.status_code == 422:
+                st.sidebar.error("❌ Invalid request format")
+            else:
+                st.sidebar.error(f"❌ Login failed: {response.status_code}")
             return False, None
+    except requests.exceptions.Timeout:
+        st.sidebar.error("❌ Login timeout - is the server running?")
+        return False, None
+    except requests.exceptions.ConnectionError:
+        st.sidebar.error("❌ Cannot connect to server - is it running on port 8000?")
+        return False, None
     except Exception as e:
-        st.error(f"Authentication error: {e}")
+        st.sidebar.error(f"❌ Authentication error: {e}")
         return False, None
 
 
@@ -258,8 +276,14 @@ def update_data():
 # --- UI: Top KPIs ---
 def render_kpis(df):
     """Render key performance indicators."""
+    # Always fetch live viewer count from metrics API
+    try:
+        r = requests.get("http://localhost:8000/metrics", timeout=2)
+        viewer_count = r.json()["viewer_count"] if r.ok else 0
+    except Exception:
+        viewer_count = 0
+
     if data_source == "Database Query":
-        viewer_count = "-"
         # Calculate gift count from database data
         if not df.empty and "amount" in df:
             amount_series = df["amount"].dropna()
@@ -276,7 +300,6 @@ def render_kpis(df):
         )
     else:
         # Metrics poll
-        viewer_count = int(df["viewer_count"].iloc[-1]) if not df.empty else 0
         gift_count = int(df["gift_count"].iloc[-1]) if not df.empty else 0
         toxic_pct = float(df["toxic_pct"].iloc[-1]) if not df.empty else 0.0
 
@@ -527,9 +550,58 @@ def render_actions():
             st.rerun()
 
 
+# --- Session State Initialization ---
+def initialize_session_state():
+    """Initialize session state variables for authentication persistence."""
+    # Initialize authentication state if not exists
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if "auth_token" not in st.session_state:
+        st.session_state.auth_token = None
+    if "auth_username" not in st.session_state:
+        st.session_state.auth_username = ""
+
+    # Initialize dataframe if not exists
+    if "df" not in st.session_state:
+        st.session_state.df = pd.DataFrame()
+
+
+def validate_existing_token():
+    """Validate existing auth token on page load."""
+    if st.session_state.auth_token and st.session_state.authenticated:
+        try:
+            # Test the token by making a simple API call
+            response = requests.get(
+                "http://localhost:8000/api/mod/threshold",
+                headers={"Authorization": f"Bearer {st.session_state.auth_token}"},
+                timeout=3,
+            )
+
+            if response.status_code == 401:
+                # Token is invalid/expired, reset auth state
+                st.session_state.authenticated = False
+                st.session_state.auth_token = None
+                st.session_state.auth_username = ""
+                st.sidebar.warning("🔄 Session expired, please login again")
+            elif response.ok:
+                # Token is still valid
+                st.sidebar.success(
+                    f"🟢 Session restored for {st.session_state.auth_username}"
+                )
+        except Exception:
+            # Network error or other issue, keep current state
+            pass
+
+
 # --- Main App Loop ---
 def main():
     """Main dashboard application."""
+    # Initialize session state for authentication persistence
+    initialize_session_state()
+
+    # Validate existing authentication token
+    validate_existing_token()
+
     st.title("SafeStream Moderator Dashboard")
 
     # Render authentication status in sidebar
