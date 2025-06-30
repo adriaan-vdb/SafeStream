@@ -2,7 +2,7 @@
 
 ## Platform Demo
 
-[![Watch the demo](SHOWCASE/ML_Moderation.png)](https://youtu.be/TIen5WwyEic)
+[![Watch the demo](Showcase/ML_Moderation.png)](https://youtu.be/TIen5WwyEic)
 
 
 *Live demonstration of SafeStream's AI-powered content moderation in action*
