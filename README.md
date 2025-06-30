@@ -1,11 +1,22 @@
-# SafeStream — Enterprise‑Grade AI Moderated Real‑Time Chat and Livestreaming Platform
+# SafeStream — Real-Time Livestreaming Platform with AI Trust & Safety Systems
+
+> A full-stack live chat & gifting platform inspired by TikTok LIVE — powered by scalable Python backend systems and real-time AI moderation to protect users and enhance livestream safety.
 
 ## Platform Demo
 
+*CLICK TO WATCH: Live demonstration of SafeStream's AI-powered content moderation in action*
+
 [![Watch the demo](Showcase/ML_Moderation.png)](https://youtu.be/TIen5WwyEic)
 
+This live demonstration simulates TikTok LIVE-style content flow with real-time moderation — combining Trust & Safety best practices with low-latency infrastructure and production-grade systems.
 
-*Live demonstration of SafeStream's AI-powered content moderation in action*
+---
+
+## Why This Project?
+
+SafeStream is inspired by real-world livestreaming platforms like TikTok LIVE — combining backend scalability, Trust & Safety mechanisms, and applied machine learning into a single production‑ready system. It simulates a live environment where real-time moderation, gifting, and user interaction happen concurrently.
+
+This hands-on build was created to understand and solve the complex systems challenges involved in **livestream content safety**, **AI deployment**, and **high-throughput backend infrastructure** — at scale.
 
 ---
 
@@ -18,41 +29,31 @@
 
 ## 1. Enterprise Architecture Overview
 
-| Area | Technical Implementation |
-| ---------- | ---------------------------------------------------------------- |
-| **Real‑Time** | **Async WebSocket** infrastructure with FastAPI + Uvicorn • Multi‑client broadcasting • Connection pooling & lifecycle management |
-| **Security** | **Enterprise JWT** authentication • bcrypt password hashing • Session management • Protected API endpoints |
-| **AI/ML** | **Detoxify ML** content moderation • Pluggable text‑classification interface • Real‑time toxicity scoring |
-| **Frontend** | **Multi‑stack UI**: Production HTML/JS client + **Streamlit admin dashboard** • Real‑time data visualization • **WebRTC Camera Integration** |
-| **Event System** | **Microservice architecture** • Event‑driven gift producer • RESTful API integration • Background task orchestration |
-| **Database** | **SQLAlchemy 2.0** with async patterns • ACID transactions • Migration system • Production‑ready persistence |
-| **DevOps** | **Full CI/CD pipeline** • Docker containerization • Automated testing • Load testing with Locust • GitHub Actions |
+| Area                  | Technical Implementation                                     |
+| --------------------- | ------------------------------------------------------------ |
+| **AI/Trust & Safety** | Real-time moderation using Detoxify ML • Sub-100ms moderation loop • Configurable thresholds for live message filtering • Dashboard visibility and admin override tooling |
+| **Security**          | JWT-based access control • bcrypt password hashing • Session protection for authenticated livestreams and admin actions |
+| **Real‑Time**         | Async WebSocket infrastructure with FastAPI + Uvicorn • Multi‑client broadcasting • Connection pooling & lifecycle management |
+| **Frontend**          | Multi‑stack UI: Production HTML/JS client + Streamlit admin dashboard • Real‑time data visualization • WebRTC Camera Integration |
+| **Event System**      | Microservice architecture • Event‑driven gift producer • RESTful API integration • Background task orchestration |
+| **Database**          | SQLAlchemy 2.0 with async patterns • ACID transactions • Migration system • Production‑ready persistence |
+| **DevOps**            | Full CI/CD pipeline • Docker containerization • Automated testing • Load testing with Locust • GitHub Actions |
 
 ---
 
-## 2. Recent Updates & Features
+## 2. Trust & Safety Design
 
-### ✅ **Phase L1 - Local Capture Preview** (Latest Release)
-- ** WebRTC Camera Integration**: Real-time webcam streaming for all authenticated users
-- ** Cross-Browser Support**: Modern WebRTC implementation with mobile optimization
-- ** Privacy-First Design**: Users control camera permissions with graceful fallback
-- ** TikTok-Style UI**: Seamless video integration with live chat overlay
-- ** Performance Optimized**: Hardware-accelerated video rendering with minimal overhead
+The platform integrates Trust & Safety principles from the ground up:
 
-### ✅ **Critical Bug Fixes**
-- **Fixed Message Limit Issue**: Resolved memory leak causing chat to stop after ~24 messages
-- **Enhanced Message Tracking**: Improved message deduplication system for better performance
-- **Memory Management**: Added safeguards to prevent browser memory issues in long sessions
-
-### ✅ **Latest Platform Capabilities**
-- **Unlimited Chat Flow**: No artificial message limits, supports continuous high-volume chat
-- **WebRTC Streaming**: Live camera integration with real-time video streaming
-- **Enterprise Database**: Complete SQLAlchemy 2.0 implementation with ACID compliance
-- **Production Monitoring**: Real-time analytics dashboard with comprehensive admin controls
+- Real-time message scanning via Detoxify (text classification)
+- Configurable moderation thresholds
+- Admin tools for muting/kicking users
+- 5-minute auto-unmute timer with server-side enforcement
+- Audit logs of moderation actions
 
 ---
 
-## 3. Why This Stack? (Critique & Justification)
+## 3. Tech Stack Justification 
 
 | Decision                | Pros                                                 | Cons                                             | Alternatives                                            |
 | ----------------------- | ---------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------- |
@@ -114,12 +115,29 @@ flowchart TD
 
 ## 5. Quick‑Start
 
-### Local (venv)
+### Requirements
+- **Python 3.12.3** (Required for ML dependencies)
+- Docker (Optional, for containerized deployment)
+
+### Local Development Setup
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,ml,dash]"  # installs all dependencies
+# Install Python 3.12.3 (if using pyenv)
+pyenv install 3.12.3
+cd SafeStream
+pyenv local 3.12.3
+
+# Create virtual environment
+python -m venv .venv312
+source .venv312/bin/activate  # On Windows: .venv312\Scripts\activate
+
+# Install dependencies
+pip install -e ".[dev,ml,dash]"
+
+# Start backend server
 uvicorn app.main:app --reload    # Backend :8000
+
+# Start dashboard (in separate terminal)
 streamlit run dashboard/app.py   # Dashboard :8501
 ```
 
@@ -130,8 +148,11 @@ docker compose up --build
 ```
 
 **Access Points:**
-- *Backend API:* `http://localhost:8000/docs` (Swagger UI)
+- *Backend API:* `http://localhost:8000` (Main API root)
+- *API Documentation:* `http://localhost:8000/docs` (Swagger UI)
+- *Health Check:* `http://localhost:8000/healthz` (System status)
 - *Chat Client:* `http://localhost:8000/chat` (Live chat interface)
+- *WebSocket:* `ws://localhost:8000/ws/{username}` (Real-time messaging)
 - *Moderator Dashboard:* `http://localhost:8501` (Real-time monitoring)
 
 ---
@@ -145,7 +166,7 @@ SafeStream includes a complete JWT authentication system with secure user manage
 - **JWT Tokens**: Stateless authentication with configurable expiry (default: 30 minutes)
 - **Password Security**: bcrypt hashing with automatic salt generation
 - **Protected Endpoints**: All WebSocket connections and admin actions require authentication
-- **User Management**: JSON-based user storage (migrating to database in Stage 11)
+- **User Management**: Full database-backed user storage with SQLAlchemy
 
 ### Usage Examples
 
@@ -176,6 +197,37 @@ The system includes pre-configured demo accounts for testing:
 - `chat_viewer` / `chat_viewer`
 
 *Note: For demo accounts, the password is the same as the username for easy testing.*
+
+### Admin Account Management
+
+**Create Admin Account:**
+```bash
+python create_admin_user.py
+```
+
+**Default Admin Account:**
+- Username: `admin`
+- Email: `admin`
+- Password: `admin`
+
+**View All Users:**
+```bash
+python3 list_users.py
+```
+
+**Delete Users:**
+```bash
+python3 delete_user.py                    # Interactive mode
+python3 delete_user.py <username>         # Delete specific user
+python3 delete_user.py --delete-all       # Delete all users (dangerous)
+```
+
+**Admin Capabilities:**
+- Kick users from chat
+- Mute users (5 minutes)
+- Reset system metrics
+- Adjust toxicity threshold (0.0-1.0)
+- Access dashboard analytics
 
 ---
 
@@ -337,6 +389,18 @@ GET /metrics
 
 ## 12. Testing & Load
 
+### Development Verification Scripts
+
+```bash
+# Run all verification scripts (comprehensive system validation)
+./DevelopmentVerification/all_verifications.sh
+
+# Run specific verification step
+./DevelopmentVerification/Step10.bash
+```
+
+### Unit and Integration Tests
+
 ```bash
 # Run full test suite (102 tests including JWT auth)
 pytest -q
@@ -346,11 +410,19 @@ pytest tests/test_auth.py -v      # JWT authentication tests
 pytest tests/test_ws_basic.py -v  # WebSocket integration tests
 pytest tests/test_gift.py -v      # Gift event tests
 
+# Run with coverage
+pytest --cov=app --cov-report=html
+```
+
+### Load Testing
+
+```bash
 # Load testing with Locust
 locust -f load/locustfile.py      # Open :8089 UI for load testing
 ```
 
 **Test Coverage:**
+- **Verification Scripts**: Stage-by-stage system validation (Step1-Step11)
 - **Authentication**: 29 comprehensive JWT tests
 - **WebSocket**: Real-time chat with moderation
 - **Gift Events**: Manual and automated gift broadcasting
@@ -520,10 +592,5 @@ streamlit run dashboard/app.py     # Dashboard with auto-refresh
 
 ---
 
-## 18. License
-
-MIT — see `LICENSE`.
-
----
 
 **Ready for Production** : SafeStream provides a complete, tested, and documented foundation for building real-time moderated chat applications with modern Python best practices, comprehensive authentication, and production-ready monitoring capabilities.
