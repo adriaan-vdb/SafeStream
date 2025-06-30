@@ -6,8 +6,8 @@ Implements toxicity detection using Detoxify (HuggingFace model).
 - First inference may be slow (model load); subsequent calls ~10ms on CPU
 - Memory: ~200MB RAM
 - Set DISABLE_DETOXIFY=1 to use stub (always non-toxic, 0.0)
-- Set TOXIC_THRESHOLD (default 0.6) to adjust sensitivity
 - Call warmup() during app startup to pre-load model and eliminate cold start delay
+- Toxicity threshold now controlled by database setting via dashboard
 """
 
 import os
@@ -50,24 +50,34 @@ async def warmup():
         print("Falling back to lazy loading")
 
 
-async def predict(text: str) -> tuple[bool, float]:
-    """Predict toxicity of input text.
+async def predict(text: str, threshold: float | None = None) -> tuple[bool, float]:
+    """Predict toxicity of input text with configurable threshold.
 
     Args:
         text: Input text to analyze
+        threshold: Toxicity threshold (0.0-1.0). If None, uses TOXIC_THRESHOLD env var.
+                  This allows for unified control from the database/dashboard.
 
     Returns:
         Tuple of (is_toxic: bool, toxicity_score: float)
 
     Environment Variables:
         DISABLE_DETOXIFY: Set to "1" to use stub mode (default: "0")
-        TOXIC_THRESHOLD: Threshold for toxic classification (default: 0.6)
+        TOXIC_THRESHOLD: Fallback threshold if none provided (default: 0.6)
     """
     if os.getenv("DISABLE_DETOXIFY", "0") == "1":
         return False, 0.0
+
     model = _get_model()
     if model is None:
         return False, 0.0
+
     score = float(model.predict(text)["toxicity"])
-    is_toxic = score >= float(os.getenv("TOXIC_THRESHOLD", 0.6))
+
+    # Use provided threshold or fall back to environment variable
+    effective_threshold = (
+        threshold if threshold is not None else float(os.getenv("TOXIC_THRESHOLD", 0.6))
+    )
+    is_toxic = score >= effective_threshold
+
     return is_toxic, score
