@@ -78,6 +78,9 @@ function initializeApp() {
     // Set up event listeners
     setupEventListeners();
     
+    // Initialize local video stream for all authenticated users
+    initLocalStream();
+    
     // Start WebSocket connection
     connectWebSocket();
     
@@ -340,6 +343,7 @@ function connectWebSocket() {
 }
 
 function handleWebSocketMessage(data) {
+    console.log(`[${username}] Received WebSocket message:`, data);
     switch (data.type) {
         case 'chat':
             renderChatMessage(data);
@@ -459,13 +463,13 @@ function setChatMessageOpacities() {
         const startIndex = Math.max(0, total - 20);
         for (let i = startIndex; i < total; i++) {
             const msg = messages[i];
-            const opacity = Math.max(1 - (total - 1 - i) * 0.15, 0.05);
+            const opacity = Math.max(1 - (total - 1 - i) * 0.1, 0.2);
             msg.style.opacity = opacity;
         }
     } else {
         // Set opacity on all messages if count is reasonable
         messages.forEach((msg, i) => {
-            const opacity = Math.max(1 - (total - 1 - i) * 0.15, 0.05);
+            const opacity = Math.max(1 - (total - 1 - i) * 0.15, 0.15);
             msg.style.opacity = opacity;
         });
     }
@@ -544,6 +548,7 @@ function sendMessage() {
     if (!text) return;
     
     if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log(`[${username}] Sending message:`, text);
         ws.send(JSON.stringify({ type: 'chat', message: text }));
         input.value = '';
         setTimeout(() => input.focus(), 0);
@@ -587,4 +592,90 @@ function stopMetricsPolling() {
         clearInterval(metricsInterval);
         metricsInterval = null;
     }
+}
+
+// Initialize local video stream for streamers
+async function initLocalStream() {
+    try {
+        console.log('Requesting camera and microphone access...');
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: true, 
+            audio: true 
+        });
+        
+        // Get video element and placeholder
+        const localVideo = document.getElementById('localVideo');
+        const videoPlaceholder = document.getElementById('videoPlaceholder');
+        
+        // Attach stream to video element
+        localVideo.srcObject = stream;
+        
+        // Show video and hide placeholder
+        localVideo.style.display = 'block';
+        videoPlaceholder.style.display = 'none';
+        
+        console.log('✓ Local video stream initialized successfully');
+        showToast('📹 Camera connected!', 'success');
+        
+    } catch (error) {
+        console.error('Failed to access camera:', error);
+        let errorMessage = 'Cannot access camera';
+        
+        // Provide more specific error messages
+        if (error.name === 'NotAllowedError') {
+            errorMessage = 'Camera access denied. Please allow camera permissions.';
+        } else if (error.name === 'NotFoundError') {
+            errorMessage = 'No camera found on this device.';
+        } else if (error.name === 'NotReadableError') {
+            errorMessage = 'Camera is being used by another application.';
+        }
+        
+        showToast(errorMessage, 'error');
+    }
+}
+
+// Show toast notifications
+function showToast(message, type = 'info') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    
+    // Style the toast
+    toast.style.cssText = `
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${type === 'error' ? '#ff4444' : type === 'success' ? '#44ff44' : '#4444ff'};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 10000;
+        opacity: 0;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        max-width: 90%;
+        text-align: center;
+    `;
+    
+    // Add to DOM
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+    }, 100);
+    
+    // Remove after 4 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(-20px)';
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 4000);
 } 
