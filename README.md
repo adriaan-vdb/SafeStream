@@ -1,6 +1,6 @@
 # SafeStream — Enterprise‑Grade AI Moderated Real‑Time Chat and Livestreaming Platform
 
-## 🎥 Platform Demo
+## Platform Demo
 
 <video width="100%" controls>
   <source src="../Showcase/ML%20Moderation%20Showcase.mov" type="video/quicktime">
