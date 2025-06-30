@@ -4,7 +4,7 @@
 
 ## Platform Demo
 
-*CLICK TO WATCH: This live demonstration simulates TikTok LIVE-style content flow with real-time moderation — combining Trust & Safety best practices with low-latency infrastructure and production-grade systems.*
+*CLICK TO WATCH: This live demo shows Social Media LIVE style content flow with real-time AI moderation — combining Trust & Safety best practices with low-latency systems*
 
 [![Watch the demo](Showcase/ML_Moderation.png)](https://youtu.be/TIen5WwyEic)
 
