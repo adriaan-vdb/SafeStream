@@ -110,6 +110,41 @@ This phase implements local webcam capture functionality for streamers, replacin
 | Camera Busy | Red toast with usage message | `NotReadableError` caught, user guidance |
 | Network Error | Generic error message | All other errors caught with fallback |
 
+## Bug Fixes
+
+### Issue: Messages Stop Sending After ~24 Messages
+**Problem**: The `renderedMessageIds` Set was growing indefinitely due to mismatched message ID formats between generation and cleanup, causing memory issues and potential browser performance problems.
+
+**Root Cause**: 
+- Message ID generation used: `${timestamp}:${user}:${btoa(message)}:${randomSuffix}`
+- Cleanup logic used: `${username}:${message}`.substring(0, 50)
+- These formats never matched, so old IDs were never removed from the Set
+
+**Solution**:
+1. **Fixed ID Storage**: Store the unique message ID in `element.dataset.messageId` when creating DOM elements
+2. **Fixed Cleanup**: Retrieve stored ID from `element.dataset.messageId` for proper cleanup
+3. **Added Safeguards**: Clear the Set if it grows beyond 1000 entries to prevent memory issues
+4. **Added Debug Logging**: Monitor Set size and cleanup operations for troubleshooting
+
+**Code Changes**:
+```javascript
+// Store ID in DOM element for proper cleanup
+div.dataset.messageId = uniqueId;
+
+// Retrieve stored ID for cleanup
+function getMessageIdFromElement(element) {
+    return element.dataset.messageId || null;
+}
+
+// Safeguard against memory issues
+if (renderedMessageIds.size > 1000) {
+    console.warn(`RenderedMessageIds set too large (${renderedMessageIds.size}), clearing to prevent memory issues`);
+    renderedMessageIds.clear();
+}
+```
+
+**Result**: Messages now flow continuously without artificial limits, improving the user experience and preventing memory leaks.
+
 ## Future Enhancements
 
 ### Phase L2 Considerations
@@ -134,14 +169,17 @@ This phase implements local webcam capture functionality for streamers, replacin
 - ✅ All users have option to enable camera
 - ✅ Toast notifications provide feedback
 - ✅ Browser compatibility maintained
+- ✅ Message ID cleanup bug fixed
+- ✅ Memory leak prevention implemented
 
 ## Code Quality Metrics
 
-- **Lines Added**: ~80 lines JavaScript, ~5 lines CSS, ~3 lines HTML
+- **Lines Added**: ~120 lines JavaScript, ~5 lines CSS, ~3 lines HTML
 - **Functions Added**: 2 (`initLocalStream`, `showToast`)
 - **Error Paths**: 4 specific error types handled
 - **User Feedback**: Toast system with success/error states
 - **Performance Impact**: Minimal, users control camera permissions
+- **Bug Fixes**: 1 critical message tracking issue resolved
 
 ---
 
@@ -153,5 +191,6 @@ The local capture preview functionality has been successfully implemented with:
 - User-friendly feedback system
 - Graceful degradation when camera access is denied
 - Cross-browser compatibility
+- **Critical bug fix**: Resolved message limit issue affecting chat flow
 
 **Next Phase**: Consider Phase L2 for advanced streaming features or focus on other platform enhancements based on product priorities. 

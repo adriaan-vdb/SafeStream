@@ -378,9 +378,13 @@ function renderChatMessage(msg) {
     const uniqueId = getMessageUniqueId(msg);
     
     if (renderedMessageIds.has(uniqueId)) {
+        console.log(`Duplicate message prevented: ${msg.user}: ${msg.message.substring(0, 20)}...`);
         return; // Already rendered
     }
     renderedMessageIds.add(uniqueId);
+    
+    // Debug logging for message tracking
+    console.log(`Rendering message ${renderedMessageIds.size}: ${msg.user}: ${msg.message.substring(0, 20)}...`);
     
     // Store current scroll position and whether user was near bottom
     const wasAtBottom = isUserAtBottom(chatMessages);
@@ -391,6 +395,9 @@ function renderChatMessage(msg) {
     
     const div = document.createElement('div');
     div.className = 'chat-message';
+    
+    // Store the unique message ID for cleanup purposes
+    div.dataset.messageId = uniqueId;
     
     if (msg.blocked) {
         div.classList.add('blocked');
@@ -495,29 +502,40 @@ function manageChatHistory(chatMessages) {
         const scrollHeight = chatMessages.scrollHeight;
         const scrollTop = chatMessages.scrollTop;
         
+        console.log(`Cleaning up ${removeCount} messages. RenderedMessageIds size before: ${renderedMessageIds.size}`);
+        
         // Remove oldest messages
         for (let i = 0; i < removeCount; i++) {
             if (messages[0]) {
                 const messageId = getMessageIdFromElement(messages[0]);
                 if (messageId) {
-                    renderedMessageIds.delete(messageId);
+                    const deleted = renderedMessageIds.delete(messageId);
+                    if (!deleted) {
+                        console.warn('Failed to delete message ID from set:', messageId);
+                    }
                 }
                 messages[0].remove();
             }
         }
+        
+        console.log(`RenderedMessageIds size after: ${renderedMessageIds.size}`);
         
         // Maintain scroll position after removing messages
         const newScrollHeight = chatMessages.scrollHeight;
         const heightDiff = scrollHeight - newScrollHeight;
         chatMessages.scrollTop = Math.max(0, scrollTop - heightDiff);
     }
+    
+    // Additional safeguard: If renderedMessageIds set grows too large, clear it
+    if (renderedMessageIds.size > 1000) {
+        console.warn(`RenderedMessageIds set too large (${renderedMessageIds.size}), clearing to prevent memory issues`);
+        renderedMessageIds.clear();
+    }
 }
 
 function getMessageIdFromElement(element) {
-    // Try to extract a message ID from the element for cleanup
-    const username = element.querySelector('.chat-username')?.textContent || 'unknown';
-    const message = element.querySelector('.chat-text')?.textContent || '';
-    return `${username}:${message}`.substring(0, 50); // Simplified ID for cleanup
+    // Get the stored message ID from the element's data attribute
+    return element.dataset.messageId || null;
 }
 
 function handleChatScroll() {
