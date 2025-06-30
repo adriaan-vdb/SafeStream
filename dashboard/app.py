@@ -213,6 +213,10 @@ def render_login_form():
                 st.sidebar.error("❌ Invalid credentials")
 
 
+# This function renders the login form for admin authentication.
+# It includes fields for username and password, and handles the login process.
+# If the login is successful, it updates the session state with the token and username.
+# If the login fails, it displays an error message.
 def render_auth_status():
     """Render authentication status in sidebar."""
     if st.session_state.authenticated:

@@ -169,6 +169,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     return user
 
 
+# This function retrieves the current active user from the JWT token.
+# It ensures that the user is not disabled before returning the user object.
+# If the user is inactive, it raises an HTTPException with a 400 status code.
+
+
 async def get_current_active_user(
     current_user: User = Depends(get_current_user),
 ) -> User:

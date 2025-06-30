@@ -71,6 +71,13 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
+# This section is responsible for handling the migration process.
+# It includes functions to run migrations in both offline and online modes,
+# ensuring that the database schema is up to date with the defined models.
+# The run_async_migrations function utilizes an asynchronous engine to
+# perform migrations, allowing for non-blocking database operations.
+
+
 async def run_async_migrations() -> None:
     """Run migrations in async mode."""
     connectable = async_engine_from_config(

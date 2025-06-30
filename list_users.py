@@ -10,6 +10,9 @@ import asyncio
 
 from app.db import async_session, init_db
 
+# This script lists all users in the SafeStream database, showing their details and recent admin actions.
+# It connects to the database asynchronously and retrieves user information, including their status and activity.
+
 
 async def list_all_users():
     """List all users in the database with their details."""

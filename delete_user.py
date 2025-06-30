@@ -12,6 +12,10 @@ import sys
 from app.db import async_session, init_db
 from app.services import database as db_service
 
+# This script provides a safe way to remove admin users with confirmation prompts and detailed feedback about what will be deleted.
+# It initializes the database, retrieves the list of users, and allows the admin to select a user for deletion.
+# The deletion process includes confirmation to prevent accidental removals.
+
 
 async def delete_user_interactive():
     """Interactively delete a user with confirmation."""
