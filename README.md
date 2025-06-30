@@ -4,11 +4,11 @@
 
 ## Platform Demo
 
-This live demonstration simulates TikTok LIVE-style content flow with real-time moderation — combining Trust & Safety best practices with low-latency infrastructure and production-grade systems.
-
 *CLICK TO WATCH: Live demonstration of SafeStream's AI-powered content moderation in action*
 
 [![Watch the demo](Showcase/ML_Moderation.png)](https://youtu.be/TIen5WwyEic)
+
+This live demonstration simulates TikTok LIVE-style content flow with real-time moderation — combining Trust & Safety best practices with low-latency infrastructure and production-grade systems.
 
 ---
 
