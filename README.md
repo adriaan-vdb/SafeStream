@@ -403,7 +403,7 @@ GitHub Actions pipeline runs on every push and PR:
   - TikTok-style UI with seamless video-chat integration
   - Critical bug fix: Resolved message limit memory leak
 
-### 🔮 Future Stages
+### ✅ Future Stages
 - **Phase L2**: Advanced Streaming Features (WebRTC P2P, recording)
 - **Stage 12**: Advanced Analytics & Reporting
 - **Stage 13**: Real-time Dashboard Updates (WebSocket)
@@ -412,10 +412,18 @@ GitHub Actions pipeline runs on every push and PR:
 
 ---
 
-## 14. Project Layout
+## 15. Project Layout
 
 ```
 SafeStream/
+├── Showcase/                       # Demo videos and presentation materials
+│   └── ML Moderation Showcase.mov  # Live platform demonstration video
+│
+├── alembic/                        # Database migration system
+│   ├── versions/                   # Migration version files
+│   ├── env.py                      # Migration environment configuration
+│   └── script.py.mako              # Migration script template
+│
 ├── app/                            # FastAPI back-end package
 │   ├── __init__.py
 │   ├── main.py                     # FastAPI app with WebSocket + auth endpoints
@@ -424,17 +432,25 @@ SafeStream/
 │   ├── events.py                   # Gift producer and broadcasting
 │   ├── schemas.py                  # Pydantic models for all APIs
 │   ├── metrics.py                  # Live metrics tracking
-│   └── db.py                       # Database models (Stage 11 ready)
+│   ├── db/                         # Database package
+│   │   ├── __init__.py
+│   │   ├── models.py               # SQLAlchemy models 
+│   │   └── database.py             # Database configuration
+│   └── services/                   # Business logic services
+│       ├── __init__.py
+│       ├── database.py             # Database service layer
+│       └── auth.py                 # Authentication service layer
 │
 ├── dashboard/                      # Streamlit moderator dashboard
 │   └── app.py                      # Full-featured dashboard with admin actions
 │
 ├── static/                         # Static assets served at /static
-│   ├── index.html                  # TikTok-style chat client (mobile-optimized)
+│   ├── app.html                    # TikTok-style chat client with WebRTC camera integration
+│   ├── login.html                  # User authentication interface
 │   ├── css/
-│   │   └── styles.css              # Dark theme + animated effects
+│   │   └── styles.css              # Dark theme + animated effects + video styling
 │   └── js/
-│       └── main.js                 # WebSocket client with JWT auth
+│       └── app.js                  # WebSocket client with JWT auth + camera integration
 │
 ├── tests/                          # Comprehensive test suite (102 tests)
 │   ├── __init__.py
@@ -476,7 +492,7 @@ SafeStream/
 
 ---
 
-## 16. Development Tools and Code Quality
+## 17. Development Tools and Code Quality
 
 ### Code Formatting & Linting
 - **Black**: Primary code formatter (line-length: 88, target: Python 3.13)
@@ -508,10 +524,10 @@ streamlit run dashboard/app.py     # Dashboard with auto-refresh
 
 ---
 
-## 17. License
+## 18. License
 
 MIT — see `LICENSE`.
 
 ---
 
-** Ready for Production**: SafeStream provides a complete, tested, and documented foundation for building real-time moderated chat applications with modern Python best practices, comprehensive authentication, and production-ready monitoring capabilities.
+** Ready for Production** : SafeStream provides a complete, tested, and documented foundation for building real-time moderated chat applications with modern Python best practices, comprehensive authentication, and production-ready monitoring capabilities.
