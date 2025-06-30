@@ -139,9 +139,11 @@ const ws = new WebSocket(`ws://localhost:8000/ws/alice?token=${token}`);
 
 ### Demo Accounts
 The system includes pre-configured demo accounts for testing:
-- `demo_user` / `demo123`
-- `test_streamer` / `test456`
-- `chat_viewer` / `viewer789`
+- `demo_user` / `demo_user`
+- `test_streamer` / `test_streamer`
+- `chat_viewer` / `chat_viewer`
+
+*Note: For demo accounts, the password is the same as the username for easy testing.*
 
 ---
 
@@ -232,7 +234,7 @@ Authorization: Bearer <jwt_token>
 
 **Server → Clients:**
 ```json
-{"type":"chat","user":"alice","message":"hello","toxic":false,"score":0.02,"ts":"2025‑06‑26T12:34:56Z"}
+{"type":"chat","id":1234,"user":"alice","message":"hello","toxic":false,"score":0.02,"ts":"2025‑06‑26T12:34:56Z"}
 ```
 
 ### Gift Events

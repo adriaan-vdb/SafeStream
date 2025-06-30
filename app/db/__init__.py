@@ -32,14 +32,44 @@ async_session = async_sessionmaker(
 
 
 async def init_db() -> None:
-    """Initialize database by creating all tables."""
+    """Initialize database by creating all tables and demo accounts."""
+    # Create tables
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Create demo accounts if they don't exist
+    await _create_demo_accounts()
 
 
 async def close_db() -> None:
     """Close database connections."""
     await async_engine.dispose()
+
+
+async def _create_demo_accounts() -> None:
+    """Create demo accounts for testing if they don't exist."""
+    from app.auth import get_password_hash
+    from app.services import database as db_service
+
+    demo_accounts = [
+        {"username": "demo_user", "email": "demo_user@safestream.local"},
+        {"username": "test_streamer", "email": "test_streamer@safestream.local"},
+        {"username": "chat_viewer", "email": "chat_viewer@safestream.local"},
+    ]
+
+    async with async_session() as session:
+        for account in demo_accounts:
+            # Check if user already exists
+            existing_user = await db_service.get_user_by_username(
+                session, account["username"]
+            )
+            if not existing_user:
+                # Create user with password same as username
+                hashed_password = get_password_hash(account["username"])
+                await db_service.create_user(
+                    session, account["username"], account["email"], hashed_password
+                )
+                print(f"Created demo account: {account['username']}")
 
 
 # Import models after Base is defined to avoid circular imports

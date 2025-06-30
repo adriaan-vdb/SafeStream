@@ -23,7 +23,7 @@ This document outlines how to test the session persistence functionality that wa
    uvicorn app.main:app --reload
    ```
 2. Open browser to `http://localhost:8000/chat`
-3. Login with demo credentials (e.g., `demo_user` / `demo123`)
+3. Login with demo credentials (e.g., `demo_user` / `demo_user`)
 4. Verify you're logged in and can send messages
 5. **Refresh the page (F5 or Ctrl+R)**
 6. ✅ **Expected**: You should remain logged in and connected to chat

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeStream - Live Chat</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        /* App-specific styles */
+        .app-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .app-logo {
+            color: #ff0050;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        
+        .app-user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: #ccc;
+        }
+        
+        .user-name {
+            font-weight: bold;
+            color: white;
+        }
+        
+        .logout-button {
+            background: #ff0050;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+
+
+        
+        .logout-button:hover {
+            background: #e00045;
+        }
+        
+        .app-container {
+            margin-top: 60px; /* Account for header */
+            height: calc(100vh - 60px);
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            color: #ff0050;
+            font-size: 1.2em;
+        }
+        
+        .loading-overlay.hidden {
+            display: none;
+        }
+        
+        .connection-status {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            z-index: 1001;
+            transition: all 0.3s ease;
+        }
+        
+        .connection-status.connected {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .connection-status.connecting {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .connection-status.disconnected {
+            background: #f44336;
+            color: white;
+        }
+        
+        .connection-status.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div>🔐 Authenticating...</div>
+    </div>
+    
+    <!-- App header -->
+    <div class="app-header">
+        <div class="app-logo">SafeStream</div>
+        <div class="app-user-info">
+            <div class="user-name" id="userName">Loading...</div>
+            <button class="logout-button" id="logoutButton">Logout</button>
+        </div>
+    </div>
+
+    <!-- New: Live Metrics Positioned Below Header -->
+    <div class="live-metrics-bar" id="live-metrics">👥 0 🎁 0</div>
+    
+    <!-- Connection status indicator -->
+    <div class="connection-status hidden" id="connectionStatus">Connecting...</div>
+    
+    <!-- Main app container -->
+    <div class="app-container">
+        <div id="mobile-wrapper">
+            <!-- Video Background Placeholder -->
+            <div class="video-bg">
+                <div class="video-placeholder">
+                    <div class="placeholder-text">🎥 Live Stream</div>
+                </div>
+            </div>
+
+            <!-- Chat Panel -->
+            <div class="chat-panel">
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Messages will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Reactions Column -->
+            <div class="reactions-column">
+                <div class="heart-reaction">❤️</div>
+                <div class="heart-reaction">💖</div>
+                <div class="heart-reaction">💕</div>
+                <div class="heart-reaction">💗</div>
+                <div class="heart-reaction">💓</div>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="input-bar">
+                <input type="text" id="messageInput" placeholder="Type a message..." maxlength="200" disabled>
+                <button id="sendButton" type="button" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html> 

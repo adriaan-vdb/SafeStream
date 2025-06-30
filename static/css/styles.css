@@ -487,19 +487,29 @@ body {
     background: rgba(255, 255, 255, 0.5);
 }
 
-/* Live Metrics Badge */
+
+/* App Logo Container */
+.app-logo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
 #live-metrics {
     position: fixed;
-    top: 8px;
-    left: 8px;
-    z-index: 1000;
+    top: 65px; /* Below the fixed header */
+    left: 16px; /* Spacing from the left edge */
     background: #ff0050;
     color: #fff;
-    padding: 4px 8px;
-    border-radius: 12px;
+    padding: 6px 14px;
+    border-radius: 999px;
     font-size: 14px;
     font-weight: 600;
     box-shadow: 0 2px 8px rgba(255, 0, 80, 0.3);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-} 
+    z-index: 1001;
+    white-space: nowrap;
+}
+

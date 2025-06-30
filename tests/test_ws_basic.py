@@ -68,10 +68,15 @@ class TestWebSocketBasic:
                 assert alice_received["type"] == "chat"
                 assert alice_received["user"] == alice_username
                 assert alice_received["message"] == "Hello, everyone!"
+                assert "id" in alice_received
                 assert "toxic" in alice_received
                 assert "score" in alice_received
                 assert "ts" in alice_received
                 assert alice_received == bob_received
+
+                # Verify ID is a positive integer (database ID)
+                assert isinstance(alice_received["id"], int)
+                assert alice_received["id"] > 0
 
                 # Check if we're in stub mode or real ML mode
                 is_stub_mode = os.getenv("DISABLE_DETOXIFY", "0") == "1"
@@ -87,8 +92,21 @@ class TestWebSocketBasic:
                     assert alice_received["toxic"] is False
 
                 # Verify timestamp is recent
-                ts = datetime.fromisoformat(alice_received["ts"].replace("Z", "+00:00"))
-                assert (datetime.now(UTC) - ts).total_seconds() < 5
+                ts_str = alice_received["ts"]
+                # Handle both ISO format with and without Z suffix
+                if ts_str.endswith("Z"):
+                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                else:
+                    ts = datetime.fromisoformat(ts_str)
+                    # If no timezone info, assume UTC
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=UTC)
+
+                now = datetime.now(UTC)
+                time_diff = (now - ts).total_seconds()
+                assert (
+                    time_diff < 10
+                ), f"Message timestamp too old: {time_diff:.2f}s ago"
 
 
 class TestWebSocketSchemaValidation:

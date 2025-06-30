@@ -27,6 +27,7 @@ class ChatMessageOut(BaseModel):
     """
 
     type: Literal["chat"] = Field(default="chat", description="Message type")
+    id: int = Field(..., description="Unique message ID from database")
     user: str = Field(..., description="Username of message sender")
     message: str = Field(..., description="Chat message content")
     toxic: bool = Field(..., description="Whether message was flagged as toxic")

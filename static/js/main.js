@@ -25,11 +25,17 @@ function handleAuthError(response) {
 }
 
 function getMessageUniqueId(msg) {
-    // Prefer server-provided id or timestamp
+    // Use database ID if available (guaranteed unique)
     if (msg.id) return msg.id;
-    if (msg.timestamp) return msg.timestamp + ':' + msg.user + ':' + msg.message;
-    // Fallback: hash of user+message+date
-    return btoa(unescape(encodeURIComponent(msg.user + ':' + msg.message + ':' + (msg.date || ''))));
+    
+    // Fallback for messages without ID: use timestamp with high precision
+    const timestamp = msg.ts || msg.timestamp || Date.now();
+    const user = msg.user || 'unknown';
+    const message = msg.message || '';
+    
+    // Include a random component to ensure uniqueness even for identical content
+    const randomSuffix = Math.random().toString(36).substr(2, 9);
+    return `${timestamp}:${user}:${btoa(message)}:${randomSuffix}`;
 }
 
 // Check if user is already authenticated

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeStream - Login</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-title">SafeStream</div>
+                <div class="login-subtitle">Live Chat & Streaming</div>
+            </div>
+            
+            <div class="login-tabs">
+                <button class="login-tab active" id="loginTab">Login</button>
+                <button class="login-tab" id="registerTab">Register</button>
+            </div>
+            
+            <!-- Login Form -->
+            <div class="login-form active" id="loginForm">
+                <div class="form-group">
+                    <input type="text" class="form-input" id="loginUsername" placeholder="Username (try demo accounts)" maxlength="20" autocomplete="username" list="demoUsernames">
+                </div>
+                <div class="form-group">
+                    <input type="password" class="form-input" id="loginPassword" placeholder="Password" autocomplete="current-password" list="demoPasswords">
+                </div>
+                <button class="form-button" id="loginButton">Sign In</button>
+                <div class="error-message" id="loginError"></div>
+            </div>
+            
+            <!-- Register Form -->
+            <div class="login-form" id="registerForm">
+                <div class="form-group">
+                    <input type="text" class="form-input" id="registerUsername" placeholder="Username (try demo accounts)" maxlength="20" autocomplete="username" list="demoUsernames">
+                </div>
+                <div class="form-group">
+                    <input type="email" class="form-input" id="registerEmail" placeholder="Email (optional)" autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <input type="password" class="form-input" id="registerPassword" placeholder="Password" autocomplete="new-password" list="demoPasswords">
+                </div>
+                <div class="form-group">
+                    <input type="password" class="form-input" id="registerPasswordConfirm" placeholder="Confirm Password" autocomplete="new-password">
+                </div>
+                <button class="form-button" id="registerButton">Create Account</button>
+                <div class="error-message" id="registerError"></div>
+            </div>
+            
+            <div class="loading-spinner" id="loadingSpinner">⏳ Signing you in...</div>
+        </div>
+    </div>
+
+    <!-- Demo account datalists for dropdown suggestions -->
+    <datalist id="demoUsernames">
+        <option value="demo_user">Demo User</option>
+        <option value="test_streamer">Test Streamer</option>
+        <option value="chat_viewer">Chat Viewer</option>
+    </datalist>
+
+    <datalist id="demoPasswords">
+        <option value="demo_user">Password for demo_user</option>
+        <option value="test_streamer">Password for test_streamer</option>
+        <option value="chat_viewer">Password for chat_viewer</option>
+    </datalist>
+
+    <script src="/static/js/login.js"></script>
+</body>
+</html> 

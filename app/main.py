@@ -141,8 +141,19 @@ def create_app(testing: bool = False) -> FastAPI:
 
     @app.get("/")
     async def root():
-        """Root endpoint returning basic status."""
-        return {"status": "ok"}
+        """Root endpoint redirecting to login page."""
+        return Response(
+            """
+            <html>
+            <head><title>SafeStream</title></head>
+            <body>
+                <script>window.location.href = '/login';</script>
+                <p>Redirecting to SafeStream...</p>
+            </body>
+            </html>
+            """,
+            media_type="text/html",
+        )
 
     @app.get("/healthz")
     async def health():
@@ -151,9 +162,33 @@ def create_app(testing: bool = False) -> FastAPI:
 
     @app.get("/chat", include_in_schema=False)
     async def chat_page():
-        """Serve the main chat page."""
+        """Serve the main chat page (legacy - redirects to login)."""
         return Response(
-            Path("static/index.html").read_text(encoding="utf-8"),
+            """
+            <html>
+            <head><title>SafeStream - Redirecting</title></head>
+            <body>
+                <script>window.location.href = '/login';</script>
+                <p>Redirecting to login page...</p>
+            </body>
+            </html>
+            """,
+            media_type="text/html",
+        )
+
+    @app.get("/login", include_in_schema=False)
+    async def login_page():
+        """Serve the login page."""
+        return Response(
+            Path("static/login.html").read_text(encoding="utf-8"),
+            media_type="text/html",
+        )
+
+    @app.get("/app", include_in_schema=False)
+    async def app_page():
+        """Serve the main application page."""
+        return Response(
+            Path("static/app.html").read_text(encoding="utf-8"),
             media_type="text/html",
         )
 
@@ -367,16 +402,7 @@ def create_app(testing: bool = False) -> FastAPI:
                     # Track metrics for chat message
                     metrics.increment_chat_message(toxic)
 
-                    # Build outgoing message with moderation results
-                    outgoing_message = schemas.ChatMessageOut(
-                        user=username,
-                        message=chat_message.message,
-                        toxic=toxic,
-                        score=score,
-                        ts=datetime.now(UTC),
-                    )
-
-                    # Save message to database
+                    # Save message to database first to get the ID
                     async with async_session() as session:
                         # Get or create user for database
                         db_user = await db_service.get_user_by_username(
@@ -389,7 +415,7 @@ def create_app(testing: bool = False) -> FastAPI:
                             )
 
                         # Save message to database
-                        await db_service.save_message(
+                        saved_message = await db_service.save_message(
                             session,
                             db_user.id,
                             chat_message.message,
@@ -397,6 +423,16 @@ def create_app(testing: bool = False) -> FastAPI:
                             score,
                             "chat",
                         )
+
+                    # Build outgoing message with moderation results and database ID
+                    outgoing_message = schemas.ChatMessageOut(
+                        id=saved_message.id,
+                        user=username,
+                        message=chat_message.message,
+                        toxic=toxic,
+                        score=score,
+                        ts=saved_message.timestamp,
+                    )
 
                     # Broadcast to all connected clients
                     message_json = outgoing_message.model_dump_json()
