@@ -77,6 +77,29 @@ async def create_user(
     return user
 
 
+async def delete_user(session: AsyncSession, user_id: int) -> bool:
+    """Delete a user and all associated data.
+
+    Args:
+        session: Async SQLAlchemy session
+        user_id: ID of the user to delete
+
+    Returns:
+        True if user was deleted, False if user not found
+
+    Note:
+        This cascades to delete all associated messages, gifts, sessions, and admin actions
+        due to the cascade settings in the User model relationships.
+    """
+    user = await session.get(User, user_id)
+    if not user:
+        return False
+
+    await session.delete(user)
+    await session.commit()
+    return True
+
+
 async def authenticate_user(
     session: AsyncSession, username: str, password: str
 ) -> User | None:
@@ -543,3 +566,97 @@ async def set_toxicity_threshold(session: AsyncSession, threshold: float) -> Set
         raise ValueError("Toxicity threshold must be between 0.0 and 1.0")
 
     return await set_setting(session, "toxicity_threshold", str(threshold))
+
+
+# ============================================================================
+# MUTE OPERATIONS
+# ============================================================================
+
+
+async def set_user_mute(
+    session: AsyncSession, user_id: int, mute_until: datetime
+) -> bool:
+    """Set a user's mute status until a specific time.
+
+    Args:
+        session: Async SQLAlchemy session
+        user_id: ID of the user to mute
+        mute_until: Datetime when the mute expires
+
+    Returns:
+        True if mute was set, False if user not found
+    """
+    mute_key = f"user_mute_{user_id}"
+    mute_value = mute_until.isoformat()
+
+    await set_setting(session, mute_key, mute_value)
+    return True
+
+
+async def get_user_mute(session: AsyncSession, user_id: int) -> datetime | None:
+    """Get a user's mute expiration time.
+
+    Args:
+        session: Async SQLAlchemy session
+        user_id: ID of the user to check
+
+    Returns:
+        Datetime when mute expires, or None if not muted
+    """
+    mute_key = f"user_mute_{user_id}"
+    mute_value = await get_setting(session, mute_key)
+
+    if not mute_value:
+        return None
+
+    try:
+        return datetime.fromisoformat(mute_value)
+    except ValueError:
+        # Invalid datetime format, remove the setting
+        await set_setting(session, mute_key, "")
+        return None
+
+
+async def is_user_muted(session: AsyncSession, user_id: int) -> bool:
+    """Check if a user is currently muted.
+
+    Args:
+        session: Async SQLAlchemy session
+        user_id: ID of the user to check
+
+    Returns:
+        True if user is currently muted, False otherwise
+    """
+    mute_until = await get_user_mute(session, user_id)
+    if not mute_until:
+        return False
+
+    now = datetime.now(UTC)
+    is_muted = now < mute_until.replace(tzinfo=UTC)
+
+    # Clean up expired mutes
+    if not is_muted:
+        mute_key = f"user_mute_{user_id}"
+        await set_setting(session, mute_key, "")
+
+    return is_muted
+
+
+async def clear_user_mute(session: AsyncSession, user_id: int) -> bool:
+    """Clear a user's mute status.
+
+    Args:
+        session: Async SQLAlchemy session
+        user_id: ID of the user to unmute
+
+    Returns:
+        True if mute was cleared, False if user was not muted
+    """
+    mute_key = f"user_mute_{user_id}"
+    current_mute = await get_setting(session, mute_key)
+
+    if not current_mute:
+        return False
+
+    await set_setting(session, mute_key, "")
+    return True

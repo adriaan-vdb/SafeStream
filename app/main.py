@@ -11,7 +11,7 @@ import logging.handlers
 import os
 import re
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import (
@@ -396,13 +396,7 @@ def create_app(testing: bool = False) -> FastAPI:
                     # Validate incoming message
                     chat_message = schemas.ChatMessageIn(**message_data)
 
-                    # Run moderation
-                    toxic, score = await moderation.predict(chat_message.message)
-
-                    # Track metrics for chat message
-                    metrics.increment_chat_message(toxic)
-
-                    # Save message to database and get toxicity threshold
+                    # Check if user is muted first
                     async with async_session() as session:
                         # Get or create user for database
                         db_user = await db_service.get_user_by_username(
@@ -413,6 +407,35 @@ def create_app(testing: bool = False) -> FastAPI:
                             db_user = await db_service.create_user(
                                 session, username, None, "temp_websocket_user"
                             )
+
+                        # Check if user is muted
+                        is_muted = await db_service.is_user_muted(session, db_user.id)
+
+                        if is_muted:
+                            # User is muted - don't process or save the message
+                            mute_until = await db_service.get_user_mute(
+                                session, db_user.id
+                            )
+                            mute_response = {
+                                "type": "muted",
+                                "message": "🚫 Your message was not sent - you are currently muted.",
+                                "muted_until": (
+                                    mute_until.isoformat() if mute_until else None
+                                ),
+                            }
+                            try:
+                                await websocket.send_text(json.dumps(mute_response))
+                            except Exception:
+                                # If we can't send response, mark for cleanup
+                                connected.discard(websocket)
+                                websocket_usernames.pop(websocket, None)
+                            continue  # Skip message processing
+
+                        # Run moderation
+                        toxic, score = await moderation.predict(chat_message.message)
+
+                        # Track metrics for chat message
+                        metrics.increment_chat_message(toxic)
 
                         # Save message to database
                         saved_message = await db_service.save_message(
@@ -583,7 +606,14 @@ def create_app(testing: bool = False) -> FastAPI:
     async def admin_kick(
         request: Request, current_user: User = Depends(get_current_active_user)
     ):
-        """Kick a user from the chat (admin only)."""
+        """Kick a user from the chat (admin only).
+
+        This action will:
+        1. Terminate all WebSocket connections for the user
+        2. Invalidate all user sessions
+        3. Delete the user from the database (cascades to all associated data)
+        4. Log the action for audit purposes
+        """
         data = await request.json()
         target_username = data.get("username")
         if not target_username:
@@ -605,11 +635,7 @@ def create_app(testing: bool = False) -> FastAPI:
             connected.discard(websocket)
             websocket_usernames.pop(websocket, None)
 
-        logging.info(
-            f"Admin {current_user.username} kicked user {target_username}. Closed {kick_count} connections."
-        )
-
-        # Log the kick action to database and invalidate user session
+        # Database operations
         async with async_session() as session:
             # Get admin user from database
             admin_user = await db_service.get_user_by_username(
@@ -621,44 +647,69 @@ def create_app(testing: bool = False) -> FastAPI:
                     session, current_user.username, None, "temp_admin_user"
                 )
 
-            # Get target user ID if exists
+            # Get target user
             target_user = await db_service.get_user_by_username(
                 session, target_username
             )
-            target_user_id = target_user.id if target_user else None
 
-            # Invalidate target user's session
-            if target_user:
-                session_invalidated = await db_service.invalidate_user_session(
-                    session, target_user.id
+            if not target_user:
+                raise HTTPException(
+                    status_code=404, detail=f"User {target_username} not found"
                 )
-                if session_invalidated:
-                    logging.info(
-                        f"Invalidated session for kicked user {target_username}"
-                    )
 
-            # Log admin action
+            target_user_id = target_user.id
+
+            # Log admin action before deletion
             await db_service.log_admin_action(
                 session,
                 admin_user.id,
                 "kick",
                 target_user_id,
-                f"Kicked user: {target_username}",
+                f"Kicked and deleted user: {target_username}",
             )
 
-        return {"status": "ok", "message": f"Kicked user: {target_username}"}
+            # Delete the user (cascades to all associated data)
+            deleted = await db_service.delete_user(session, target_user_id)
+
+            if deleted:
+                logging.info(
+                    f"Admin {current_user.username} kicked user {target_username}. "
+                    f"Closed {kick_count} connections and deleted user from database."
+                )
+            else:
+                logging.warning(
+                    f"Admin {current_user.username} attempted to kick {target_username} "
+                    f"but user deletion failed."
+                )
+
+        return {
+            "status": "ok",
+            "message": f"Kicked user: {target_username}",
+            "connections_closed": kick_count,
+            "user_deleted": deleted,
+        }
 
     @app.post("/api/admin/mute")
     async def admin_mute(
         request: Request, current_user: User = Depends(get_current_active_user)
     ):
-        """Mute a user (admin only)."""
+        """Mute a user for 5 minutes (admin only).
+
+        This action will:
+        1. Set a 5-minute mute timer for the user
+        2. Notify the user via WebSocket about the mute
+        3. Suppress all their messages during the mute period
+        4. Log the action for audit purposes
+        """
         data = await request.json()
         target_username = data.get("username")
         if not target_username:
             raise HTTPException(status_code=400, detail="Username required")
 
-        # Log the mute action to database
+        # Calculate mute expiration (5 minutes from now)
+        mute_until = datetime.now(UTC) + timedelta(minutes=5)
+
+        # Database operations
         async with async_session() as session:
             # Get admin user from database
             admin_user = await db_service.get_user_by_username(
@@ -670,11 +721,20 @@ def create_app(testing: bool = False) -> FastAPI:
                     session, current_user.username, None, "temp_admin_user"
                 )
 
-            # Get target user ID if exists
+            # Get target user
             target_user = await db_service.get_user_by_username(
                 session, target_username
             )
-            target_user_id = target_user.id if target_user else None
+
+            if not target_user:
+                raise HTTPException(
+                    status_code=404, detail=f"User {target_username} not found"
+                )
+
+            target_user_id = target_user.id
+
+            # Set the mute
+            await db_service.set_user_mute(session, target_user_id, mute_until)
 
             # Log admin action
             await db_service.log_admin_action(
@@ -682,10 +742,44 @@ def create_app(testing: bool = False) -> FastAPI:
                 admin_user.id,
                 "mute",
                 target_user_id,
-                f"Muted user: {target_username}",
+                f"Muted user: {target_username} until {mute_until.isoformat()}",
             )
 
-        return {"status": "ok", "message": f"Muted user: {target_username}"}
+        # Notify the muted user via WebSocket
+        mute_message = {
+            "type": "system",
+            "message": "🚫 You've been muted for 5 minutes by a moderator.",
+            "muted_until": mute_until.isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+        # Find and notify all connections for the muted user
+        muted_connections = []
+        for websocket, ws_username in websocket_usernames.items():
+            if ws_username == target_username:
+                muted_connections.append(websocket)
+
+        notification_count = 0
+        for websocket in muted_connections:
+            try:
+                await websocket.send_text(json.dumps(mute_message))
+                notification_count += 1
+            except Exception:
+                # Connection might be closed, clean up
+                connected.discard(websocket)
+                websocket_usernames.pop(websocket, None)
+
+        logging.info(
+            f"Admin {current_user.username} muted user {target_username} until {mute_until}. "
+            f"Notified {notification_count} connections."
+        )
+
+        return {
+            "status": "ok",
+            "message": f"Muted user: {target_username} for 5 minutes",
+            "muted_until": mute_until.isoformat(),
+            "notifications_sent": notification_count,
+        }
 
     @app.post("/api/admin/reset_metrics")
     async def admin_reset_metrics(

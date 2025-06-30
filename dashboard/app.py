@@ -61,6 +61,14 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 # --- Data Source Selection ---
 data_source = st.sidebar.radio("Data Source", ["Database Query", "Metrics API Poll"])
 
+# --- Authentication State ---
+if "auth_token" not in st.session_state:
+    st.session_state.auth_token = None
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "auth_username" not in st.session_state:
+    st.session_state.auth_username = ""
+
 # --- DataFrame State ---
 if "df" not in st.session_state:
     st.session_state.df = pd.DataFrame()
@@ -137,6 +145,69 @@ async def reset_database():
         except Exception as e:
             await session.rollback()
             return False, f"Failed to reset database: {str(e)}"
+
+
+# --- Authentication Functions ---
+def authenticate_admin(username: str, password: str) -> tuple[bool, str | None]:
+    """Authenticate admin user and return JWT token."""
+    try:
+        response = requests.post(
+            "http://localhost:8000/auth/login",
+            data={"username": username, "password": password},
+            timeout=5,
+        )
+        if response.ok:
+            data = response.json()
+            return True, data.get("access_token")
+        else:
+            return False, None
+    except Exception as e:
+        st.error(f"Authentication error: {e}")
+        return False, None
+
+
+def get_auth_headers() -> dict[str, str]:
+    """Get authentication headers for API requests."""
+    if st.session_state.auth_token:
+        return {"Authorization": f"Bearer {st.session_state.auth_token}"}
+    return {}
+
+
+def render_login_form():
+    """Render login form for admin authentication."""
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔐 Admin Login")
+
+    with st.sidebar.form("admin_login"):
+        username = st.text_input("Username", key="login_username")
+        password = st.text_input("Password", type="password", key="login_password")
+        login_button = st.form_submit_button("Login")
+
+        if login_button and username and password:
+            success, token = authenticate_admin(username, password)
+            if success and token:
+                st.session_state.auth_token = token
+                st.session_state.authenticated = True
+                st.session_state.auth_username = username
+                st.sidebar.success(f"✅ Logged in as {username}")
+                st.rerun()
+            else:
+                st.sidebar.error("❌ Invalid credentials")
+
+
+def render_auth_status():
+    """Render authentication status in sidebar."""
+    if st.session_state.authenticated:
+        st.sidebar.markdown("---")
+        st.sidebar.markdown(f"**🟢 Logged in as:** {st.session_state.auth_username}")
+        if st.sidebar.button("Logout", key="logout_button"):
+            st.session_state.auth_token = None
+            st.session_state.authenticated = False
+            st.session_state.auth_username = ""
+            st.sidebar.success("✅ Logged out")
+            st.rerun()
+    else:
+        render_login_form()
 
 
 def fetch_metrics_poll():
@@ -299,40 +370,65 @@ def render_actions():
     """Render admin action buttons."""
     st.subheader("Admin Actions")
 
+    # Show authentication status
+    if st.session_state.authenticated:
+        st.markdown(f"🟢 **Authenticated as:** {st.session_state.auth_username}")
+    else:
+        st.markdown(
+            "🔴 **Not authenticated** - Please login in the sidebar to perform admin actions"
+        )
+
     # User moderation section
     st.markdown("**User Moderation**")
     username = st.text_input("Username to moderate", "", key="moderate_username_input")
     col1, col2 = st.columns(2)
 
     if col1.button("Kick", use_container_width=True, key="kick_button"):
-        if username:
+        if not st.session_state.authenticated:
+            st.error("❌ Please login to perform admin actions")
+        elif username:
             try:
                 r = requests.post(
                     "http://localhost:8000/api/admin/kick",
                     json={"username": username},
+                    headers=get_auth_headers(),
                     timeout=5,
                 )
                 if r.ok:
-                    st.success(f"Kicked {username}")
+                    data = r.json()
+                    st.success(
+                        f"✅ Kicked {username} - {data.get('connections_closed', 0)} connections closed"
+                    )
                 else:
-                    st.error(f"Failed to kick {username}: {r.text}")
+                    st.error(f"❌ Failed to kick {username}: {r.text}")
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"❌ Error: {e}")
+        else:
+            st.warning("⚠️ Please enter a username")
 
     if col2.button("Mute 5 min", use_container_width=True, key="mute_button"):
-        if username:
+        if not st.session_state.authenticated:
+            st.error("❌ Please login to perform admin actions")
+        elif username:
             try:
                 r = requests.post(
                     "http://localhost:8000/api/admin/mute",
                     json={"username": username},
+                    headers=get_auth_headers(),
                     timeout=5,
                 )
                 if r.ok:
-                    st.success(f"Muted {username} for 5 min")
+                    data = r.json()
+                    muted_until = data.get("muted_until", "")
+                    st.success(
+                        f"🔇 Muted {username} for 5 min (until {muted_until[:19] if muted_until else 'N/A'})"
+                    )
                 else:
-                    st.error(f"Failed to mute {username}: {r.text}")
+                    st.error(f"❌ Failed to mute {username}: {r.text}")
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"❌ Error: {e}")
+        else:
+            st.warning("⚠️ Please enter a username")
 
     # Toxicity threshold control section
     st.markdown("---")
@@ -345,7 +441,7 @@ def render_actions():
     except Exception:
         current_threshold = 0.6
 
-    # Threshold slider
+    # Threshold slider (disabled if not authenticated)
     new_threshold = st.slider(
         "Toxicity Threshold",
         min_value=0.0,
@@ -355,24 +451,29 @@ def render_actions():
         format="%.2f",
         key="toxicity_threshold_slider",
         help="Messages with toxicity scores above this threshold will be blocked for everyone except the sender",
+        disabled=not st.session_state.authenticated,
     )
 
     # Update threshold if changed
     if (
         abs(new_threshold - current_threshold) > 0.001
     ):  # Account for floating point precision
-        try:
-            r = requests.patch(
-                "http://localhost:8000/api/mod/threshold",
-                json={"threshold": new_threshold},
-                timeout=5,
-            )
-            if r.ok:
-                st.success(f"Updated toxicity threshold to {new_threshold:.2f}")
-            else:
-                st.error(f"Failed to update threshold: {r.text}")
-        except Exception as e:
-            st.error(f"Error updating threshold: {e}")
+        if not st.session_state.authenticated:
+            st.error("❌ Please login to change toxicity threshold")
+        else:
+            try:
+                r = requests.patch(
+                    "http://localhost:8000/api/mod/threshold",
+                    json={"threshold": new_threshold},
+                    headers=get_auth_headers(),
+                    timeout=5,
+                )
+                if r.ok:
+                    st.success(f"✅ Updated toxicity threshold to {new_threshold:.2f}")
+                else:
+                    st.error(f"❌ Failed to update threshold: {r.text}")
+            except Exception as e:
+                st.error(f"❌ Error updating threshold: {e}")
 
     st.info(
         f"Current threshold: {current_threshold:.2f} - Messages scoring ≥{current_threshold:.2f} will be blocked"
@@ -430,6 +531,9 @@ def render_actions():
 def main():
     """Main dashboard application."""
     st.title("SafeStream Moderator Dashboard")
+
+    # Render authentication status in sidebar
+    render_auth_status()
 
     # Add auto-refresh control
     col1, col2 = st.columns([3, 1])
