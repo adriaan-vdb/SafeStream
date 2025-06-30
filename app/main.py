@@ -433,8 +433,13 @@ def create_app(testing: bool = False) -> FastAPI:
                                 websocket_usernames.pop(websocket, None)
                             continue  # Skip message processing
 
-                        # Run moderation
-                        toxic, score = await moderation.predict(chat_message.message)
+                        # Get current toxicity threshold for unified decision
+                        threshold = await db_service.get_toxicity_threshold(session)
+
+                        # Run moderation with unified threshold - KEY FIX!
+                        toxic, score = await moderation.predict(
+                            chat_message.message, threshold
+                        )
 
                         # Track metrics for chat message
                         metrics.increment_chat_message(toxic)
@@ -449,11 +454,8 @@ def create_app(testing: bool = False) -> FastAPI:
                             "chat",
                         )
 
-                        # Get current toxicity threshold
-                        threshold = await db_service.get_toxicity_threshold(session)
-
-                    # Determine if message should be blocked based on threshold
-                    blocked = score >= threshold if score is not None else False
+                    # Both blocking and highlighting now use the same threshold!
+                    blocked = toxic
 
                     if blocked:
                         # Send blocked message only to sender
