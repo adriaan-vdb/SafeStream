@@ -7,6 +7,7 @@ Implements toxicity detection using Detoxify (HuggingFace model).
 - Memory: ~200MB RAM
 - Set DISABLE_DETOXIFY=1 to use stub (always non-toxic, 0.0)
 - Set TOXIC_THRESHOLD (default 0.6) to adjust sensitivity
+- Call warmup() during app startup to pre-load model and eliminate cold start delay
 """
 
 import os
@@ -23,6 +24,30 @@ def _get_model():
     except ImportError:
         print("Detoxify not available, using stub moderation.")
         return None
+
+
+async def warmup():
+    """Pre-load the model during startup to eliminate cold start delay.
+
+    Call this during application startup to ensure the first message
+    doesn't experience the model loading delay.
+    """
+    if os.getenv("DISABLE_DETOXIFY", "0") == "1":
+        print("Detoxify disabled, skipping model warmup")
+        return
+
+    try:
+        print("Warming up Detoxify model...")
+        model = _get_model()
+        if model is not None:
+            # Run a quick prediction to fully initialize the model
+            _ = model.predict("warmup message")
+            print("✓ Detoxify model warmed up successfully")
+        else:
+            print("Detoxify model not available, using stub mode")
+    except Exception as e:
+        print(f"Warning: Model warmup failed: {e}")
+        print("Falling back to lazy loading")
 
 
 async def predict(text: str) -> tuple[bool, float]:

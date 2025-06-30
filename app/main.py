@@ -76,6 +76,9 @@ async def lifespan(app: FastAPI):
     await init_db()
     logging.info("Database initialized successfully")
 
+    # Pre-load ML model to eliminate cold start delay
+    await moderation.warmup()
+
     # Read GIFT_INTERVAL_SECS from environment or use default
     gift_interval = int(os.getenv("GIFT_INTERVAL_SECS", "15"))
     logging.info(f"Starting gift producer with interval: {gift_interval} seconds")
@@ -256,7 +259,7 @@ def create_app(testing: bool = False) -> FastAPI:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Check if user already has an active session
+        # Handle existing sessions - replace instead of blocking
         async with async_session() as session:
             # Get the actual database user model (with id field)
             db_user = await db_service.get_user_by_username(session, user.username)
@@ -266,15 +269,14 @@ def create_app(testing: bool = False) -> FastAPI:
                     detail="User not found in database",
                 )
 
+            # Check if user already has an active session
             existing_session = await db_service.get_active_session_by_user(
                 session, db_user.id
             )
             if existing_session:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="User is already logged in from another session. Please logout from other devices first.",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
+                # Instead of blocking, invalidate the existing session and allow new login
+                await db_service.invalidate_user_session(session, db_user.id)
+                logging.info(f"Replaced existing session for user {user.username}")
 
             # Create new session
             user_agent = request.headers.get("user-agent")
