@@ -97,6 +97,15 @@ function setupEventListeners() {
         if (e.key === 'Enter') sendMessage();
     });
     
+    // Scroll to bottom button
+    document.getElementById('scrollToBottom').addEventListener('click', () => {
+        scrollChatToBottom();
+        hideScrollToBottomButton();
+    });
+    
+    // Chat scroll listener
+    document.getElementById('chatMessages').addEventListener('scroll', handleChatScroll);
+    
     // Heart reactions - send gifts when clicked
     setupHeartReactions();
 }
@@ -369,6 +378,9 @@ function renderChatMessage(msg) {
     }
     renderedMessageIds.add(uniqueId);
     
+    // Store current scroll position and whether user was near bottom
+    const wasAtBottom = isUserAtBottom(chatMessages);
+    
     // Store current focus to restore it if needed
     const activeElement = document.activeElement;
     const wasInputFocused = activeElement && activeElement.id === 'messageInput';
@@ -376,7 +388,10 @@ function renderChatMessage(msg) {
     const div = document.createElement('div');
     div.className = 'chat-message';
     
-    if (msg.toxic) {
+    if (msg.blocked) {
+        div.classList.add('blocked');
+        div.setAttribute('data-blocked', `Message blocked (${(msg.score * 100).toFixed(1)}% toxic)`);
+    } else if (msg.toxic) {
         div.classList.add('toxic');
         div.setAttribute('data-toxicity', `Toxicity: ${(msg.score * 100).toFixed(1)}%`);
     }
@@ -384,10 +399,17 @@ function renderChatMessage(msg) {
     div.innerHTML = `<span class="chat-username">${msg.user}</span> <span class="chat-text">${msg.message}</span>`;
     chatMessages.appendChild(div);
     
+    // Manage message history to prevent too many DOM elements
+    manageChatHistory(chatMessages);
+    
     // Use requestAnimationFrame to avoid blocking the main thread
     requestAnimationFrame(() => {
         setChatMessageOpacities();
-        scrollChatToBottom();
+        
+        // Only auto-scroll if user was already at the bottom
+        if (wasAtBottom) {
+            scrollChatToBottom();
+        }
         
         // Restore focus if it was on the input and got lost
         if (wasInputFocused && document.activeElement !== activeElement) {
@@ -449,14 +471,70 @@ function setChatMessageOpacities() {
     }
 }
 
+function isUserAtBottom(chatMessages) {
+    const threshold = 50; // pixels from bottom
+    return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < threshold;
+}
+
 function scrollChatToBottom() {
     const chatMessages = document.getElementById('chatMessages');
-    const threshold = 40;
-    const isAtBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < threshold;
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function manageChatHistory(chatMessages) {
+    const maxMessages = 200; // Keep up to 200 messages in DOM
+    const messages = chatMessages.children;
     
-    if (isAtBottom) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (messages.length > maxMessages) {
+        // Remove oldest messages but keep scroll position stable
+        const removeCount = messages.length - maxMessages;
+        const scrollHeight = chatMessages.scrollHeight;
+        const scrollTop = chatMessages.scrollTop;
+        
+        // Remove oldest messages
+        for (let i = 0; i < removeCount; i++) {
+            if (messages[0]) {
+                const messageId = getMessageIdFromElement(messages[0]);
+                if (messageId) {
+                    renderedMessageIds.delete(messageId);
+                }
+                messages[0].remove();
+            }
+        }
+        
+        // Maintain scroll position after removing messages
+        const newScrollHeight = chatMessages.scrollHeight;
+        const heightDiff = scrollHeight - newScrollHeight;
+        chatMessages.scrollTop = Math.max(0, scrollTop - heightDiff);
     }
+}
+
+function getMessageIdFromElement(element) {
+    // Try to extract a message ID from the element for cleanup
+    const username = element.querySelector('.chat-username')?.textContent || 'unknown';
+    const message = element.querySelector('.chat-text')?.textContent || '';
+    return `${username}:${message}`.substring(0, 50); // Simplified ID for cleanup
+}
+
+function handleChatScroll() {
+    const chatMessages = document.getElementById('chatMessages');
+    const scrollButton = document.getElementById('scrollToBottom');
+    
+    if (isUserAtBottom(chatMessages)) {
+        hideScrollToBottomButton();
+    } else {
+        showScrollToBottomButton();
+    }
+}
+
+function showScrollToBottomButton() {
+    const scrollButton = document.getElementById('scrollToBottom');
+    scrollButton.classList.add('visible');
+}
+
+function hideScrollToBottomButton() {
+    const scrollButton = document.getElementById('scrollToBottom');
+    scrollButton.classList.remove('visible');
 }
 
 function sendMessage() {
