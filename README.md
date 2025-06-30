@@ -435,34 +435,6 @@ SafeStream/
 
 ---
 
-## 15. High‑Level Build Guide (for an LLM)
-
-**Stage 1-2 — Project Foundation**\
-✅ Create project skeleton with modern Python packaging (`pyproject.toml`). Initialize FastAPI app with WebSocket route `/ws/{username}` and in-memory connection management.
-
-**Stage 3-4 — Core Chat System**\
-✅ Implement moderation pipeline with Detoxify integration. Add message validation, toxicity scoring, and real-time broadcasting to all connected clients.
-
-**Stage 5-6 — Gift System**\
-✅ Add gift API endpoint and automated gift producer. Implement background asyncio tasks for random gift generation with configurable intervals.
-
-**Stage 7-8 — ML & Performance**\
-✅ Integrate Detoxify ML model with async prediction pipeline. Add comprehensive load testing with Locust (200 users, 500 msg/s target).
-
-**Stage 9 — Dashboard**\
-✅ Build full-featured Streamlit dashboard with real-time metrics, message filtering, admin actions, and analytics visualizations.
-
-**Stage 10 — Authentication**\
-✅ Implement complete JWT authentication system with user registration, login, protected WebSocket connections, and admin endpoint security.
-
-**Stage 11 — Database Integration** (Implementation Ready)\
-🚧 Migrate from file-based storage to SQLAlchemy database. Implement dual storage strategy, user migration, and dashboard database integration.
-
-**Stage 12+ — Advanced Features**\
-🔮 Add advanced analytics, real-time dashboard updates, message search, and production deployment configurations.
-
----
-
 ## 16. Development Tools and Code Quality
 
 ### Code Formatting & Linting

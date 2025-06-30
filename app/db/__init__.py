@@ -77,6 +77,7 @@ from app.db.models import (  # noqa: E402
     AdminAction,
     GiftEvent,
     Message,
+    Setting,
     User,
     UserSession,
 )
@@ -94,4 +95,5 @@ __all__ = [
     "GiftEvent",
     "AdminAction",
     "UserSession",
+    "Setting",
 ]

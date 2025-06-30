@@ -306,10 +306,19 @@ function renderMessage(msg) {
     
     const div = document.createElement('div');
     div.className = 'chat-message';
+    
+    // Handle blocked messages
+    if (msg.blocked) {
+        div.classList.add('blocked');
+        div.setAttribute('data-blocked', `Message blocked (score: ${(msg.score * 100).toFixed(1)}%)`);
+    }
+    
+    // Handle toxic messages
     if (msg.toxic) {
         div.classList.add('toxic');
         div.setAttribute('data-toxicity', `Toxicity: ${(msg.score * 100).toFixed(1)}%`);
     }
+    
     div.innerHTML = `<span class=\"chat-username\">${msg.user}</span> <span class=\"chat-text\">${msg.message}</span>`;
     chatMessages.appendChild(div);
     

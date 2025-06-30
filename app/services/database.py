@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import AdminAction, GiftEvent, Message, User, UserSession
+from app.db.models import AdminAction, GiftEvent, Message, Setting, User, UserSession
 
 # ============================================================================
 # USER OPERATIONS
@@ -455,3 +455,91 @@ async def cleanup_expired_sessions(session: AsyncSession) -> int:
 
     await session.commit()
     return len(expired_sessions)
+
+
+# ============================================================================
+# SETTINGS OPERATIONS
+# ============================================================================
+
+
+async def get_setting(
+    session: AsyncSession, key: str, default: str | None = None
+) -> str | None:
+    """Get a setting value by key.
+
+    Args:
+        session: Async SQLAlchemy session
+        key: Setting key to retrieve
+        default: Default value if setting not found
+
+    Returns:
+        Setting value if found, default otherwise
+    """
+    stmt = select(Setting).where(Setting.key == key)
+    result = await session.execute(stmt)
+    setting = result.scalar_one_or_none()
+    return setting.value if setting else default
+
+
+async def set_setting(session: AsyncSession, key: str, value: str) -> Setting:
+    """Set a setting value by key.
+
+    Args:
+        session: Async SQLAlchemy session
+        key: Setting key to set
+        value: Setting value to set
+
+    Returns:
+        Created or updated Setting instance
+    """
+    # Try to get existing setting
+    stmt = select(Setting).where(Setting.key == key)
+    result = await session.execute(stmt)
+    setting = result.scalar_one_or_none()
+
+    if setting:
+        # Update existing setting
+        setting.value = value
+    else:
+        # Create new setting
+        setting = Setting(key=key, value=value)
+        session.add(setting)
+
+    await session.commit()
+    await session.refresh(setting)
+    return setting
+
+
+async def get_toxicity_threshold(session: AsyncSession) -> float:
+    """Get the current toxicity threshold from settings.
+
+    Args:
+        session: Async SQLAlchemy session
+
+    Returns:
+        Toxicity threshold (0.0-1.0), defaults to 0.6 if not set
+    """
+    threshold_str = await get_setting(session, "toxicity_threshold", "0.6")
+    try:
+        return float(threshold_str)
+    except (ValueError, TypeError):
+        return 0.6  # Default fallback
+
+
+async def set_toxicity_threshold(session: AsyncSession, threshold: float) -> Setting:
+    """Set the toxicity threshold in settings.
+
+    Args:
+        session: Async SQLAlchemy session
+        threshold: Toxicity threshold (0.0-1.0)
+
+    Returns:
+        Updated Setting instance
+
+    Raises:
+        ValueError: If threshold is not between 0.0 and 1.0
+    """
+    if not 0.0 <= threshold <= 1.0:
+        raise ValueError("Toxicity threshold must be between 0.0 and 1.0")
+
+    return await set_setting(session, "toxicity_threshold", str(threshold))

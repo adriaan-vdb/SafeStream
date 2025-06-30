@@ -402,7 +402,7 @@ def create_app(testing: bool = False) -> FastAPI:
                     # Track metrics for chat message
                     metrics.increment_chat_message(toxic)
 
-                    # Save message to database first to get the ID
+                    # Save message to database and get toxicity threshold
                     async with async_session() as session:
                         # Get or create user for database
                         db_user = await db_service.get_user_by_username(
@@ -424,42 +424,71 @@ def create_app(testing: bool = False) -> FastAPI:
                             "chat",
                         )
 
-                    # Build outgoing message with moderation results and database ID
-                    outgoing_message = schemas.ChatMessageOut(
-                        id=saved_message.id,
-                        user=username,
-                        message=chat_message.message,
-                        toxic=toxic,
-                        score=score,
-                        ts=saved_message.timestamp,
-                    )
+                        # Get current toxicity threshold
+                        threshold = await db_service.get_toxicity_threshold(session)
 
-                    # Broadcast to all connected clients
-                    message_json = outgoing_message.model_dump_json()
-                    disconnected_clients = []
-                    broadcast_count = 0
+                    # Determine if message should be blocked based on threshold
+                    blocked = score >= threshold if score is not None else False
 
-                    for (
-                        client_websocket
-                    ) in (
-                        connected.copy()
-                    ):  # Use copy to avoid modification during iteration
+                    if blocked:
+                        # Send blocked message only to sender
+                        blocked_message = schemas.ChatMessageOut(
+                            id=saved_message.id,
+                            user=username,
+                            message=chat_message.message,
+                            toxic=toxic,
+                            score=score,
+                            ts=saved_message.timestamp,
+                            blocked=True,
+                        )
+
                         try:
-                            await client_websocket.send_text(message_json)
-                            broadcast_count += 1
+                            await websocket.send_text(blocked_message.model_dump_json())
+                            logging.info(
+                                f"Blocked message from {username} (score: {score:.3f}, threshold: {threshold:.3f})"
+                            )
                         except Exception:
-                            # Mark for removal
-                            disconnected_clients.append(client_websocket)
+                            # If we can't send to sender, mark for cleanup
+                            connected.discard(websocket)
+                            websocket_usernames.pop(websocket, None)
+                    else:
+                        # Build outgoing message for broadcast
+                        outgoing_message = schemas.ChatMessageOut(
+                            id=saved_message.id,
+                            user=username,
+                            message=chat_message.message,
+                            toxic=toxic,
+                            score=score,
+                            ts=saved_message.timestamp,
+                            blocked=False,
+                        )
 
-                    # Log broadcast success
-                    logging.info(
-                        f"Message from {username} broadcast to {broadcast_count} clients"
-                    )
+                        # Broadcast to all connected clients
+                        message_json = outgoing_message.model_dump_json()
+                        disconnected_clients = []
+                        broadcast_count = 0
 
-                    # Clean up disconnected clients
-                    for client_websocket in disconnected_clients:
-                        connected.discard(client_websocket)
-                        websocket_usernames.pop(client_websocket, None)
+                        for (
+                            client_websocket
+                        ) in (
+                            connected.copy()
+                        ):  # Use copy to avoid modification during iteration
+                            try:
+                                await client_websocket.send_text(message_json)
+                                broadcast_count += 1
+                            except Exception:
+                                # Mark for removal
+                                disconnected_clients.append(client_websocket)
+
+                        # Log broadcast success
+                        logging.info(
+                            f"Message from {username} broadcast to {broadcast_count} clients"
+                        )
+
+                        # Clean up disconnected clients
+                        for client_websocket in disconnected_clients:
+                            connected.discard(client_websocket)
+                            websocket_usernames.pop(client_websocket, None)
 
                 except Exception as e:
                     # Handle validation errors and other exceptions gracefully
@@ -687,6 +716,59 @@ def create_app(testing: bool = False) -> FastAPI:
             )
 
         return {"status": "metrics reset"}
+
+    @app.get("/api/mod/threshold")
+    async def get_toxicity_threshold():
+        """Get the current toxicity threshold."""
+        async with async_session() as session:
+            threshold = await db_service.get_toxicity_threshold(session)
+            return {"threshold": threshold}
+
+    @app.patch("/api/mod/threshold")
+    async def set_toxicity_threshold(
+        request: Request, current_user: User = Depends(get_current_active_user)
+    ):
+        """Set the toxicity threshold (admin only)."""
+        data = await request.json()
+        threshold = data.get("threshold")
+
+        if threshold is None:
+            raise HTTPException(status_code=400, detail="Threshold value required")
+
+        if not isinstance(threshold, int | float):
+            raise HTTPException(status_code=400, detail="Threshold must be a number")
+
+        if not 0.0 <= threshold <= 1.0:
+            raise HTTPException(
+                status_code=400, detail="Threshold must be between 0.0 and 1.0"
+            )
+
+        async with async_session() as session:
+            try:
+                await db_service.set_toxicity_threshold(session, float(threshold))
+
+                # Log the threshold change action to database
+                admin_user = await db_service.get_user_by_username(
+                    session, current_user.username
+                )
+                if not admin_user:
+                    # Create admin user if not exists
+                    admin_user = await db_service.create_user(
+                        session, current_user.username, None, "temp_admin_user"
+                    )
+
+                await db_service.log_admin_action(
+                    session,
+                    admin_user.id,
+                    "set_threshold",
+                    None,
+                    f"Set toxicity threshold to: {threshold}",
+                )
+
+                return {"threshold": threshold, "status": "updated"}
+
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
 
     return app
 

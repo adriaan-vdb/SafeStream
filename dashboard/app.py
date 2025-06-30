@@ -4,27 +4,36 @@ Database-powered real-time dashboard for chat moderation and analytics.
 """
 
 import asyncio
+import os
 import sys
-import time
+import warnings
 from datetime import datetime
 from pathlib import Path
-
-# Add parent directory to path to import app modules
-sys.path.append(str(Path(__file__).parent.parent))
-
-# Suppress pandas warnings
-import warnings
 
 import altair as alt
 import pandas as pd
 import requests
 import streamlit as st
-from sqlalchemy import desc, select
+from sqlalchemy import desc, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-# Import database models and service
-from app.db.models import GiftEvent, Message, User
+# Add parent directory to path to import app modules
+parent_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(parent_dir))
 
+# Change to parent directory to ensure proper module resolution
+os.chdir(parent_dir)
+
+# Import database models and service
+try:
+    from app.config import settings
+    from app.db.models import GiftEvent, Message, User
+except ImportError as e:
+    st.error(f"Failed to import SafeStream modules: {e}")
+    st.error("Make sure you're running the dashboard from the SafeStream directory")
+    st.stop()
+
+# Suppress pandas FutureWarnings for cleaner dashboard output
 warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
 
 METRICS_URL = "http://localhost:8000/metrics"
@@ -61,8 +70,7 @@ if "df" not in st.session_state:
 @st.cache_resource
 def get_database_engine():
     """Get database engine with caching."""
-    database_url = "sqlite+aiosqlite:///safestream.db"
-    return create_async_engine(database_url, echo=False)
+    return create_async_engine(settings.database_url, echo=False)
 
 
 async def fetch_database_messages():
@@ -113,6 +121,22 @@ async def fetch_database_messages():
             )
 
         return pd.DataFrame(rows)
+
+
+async def reset_database():
+    """Reset database by clearing all messages and gifts."""
+    engine = get_database_engine()
+    async with AsyncSession(engine) as session:
+        try:
+            # Delete all messages
+            await session.execute(text("DELETE FROM messages"))
+            # Delete all gift events
+            await session.execute(text("DELETE FROM gift_events"))
+            await session.commit()
+            return True, "Database reset successfully"
+        except Exception as e:
+            await session.rollback()
+            return False, f"Failed to reset database: {str(e)}"
 
 
 def fetch_metrics_poll():
@@ -204,10 +228,11 @@ def render_table(df):
             filtered["user"].str.contains(filter_user, case=False, na=False)
         ]
     if filter_toxic:
+        # Handle NaN values in toxic column - only show rows where toxic is explicitly True
         filtered = filtered[filtered["toxic"]]
 
     def highlight_toxic(row):
-        return ["background-color: #ffcccc;" if row.toxic else "" for _ in row]
+        return ["background-color: #f77777;" if row.toxic else "" for _ in row]
 
     if not filtered.empty:
         # Sort by timestamp and show most recent first
@@ -273,6 +298,9 @@ def render_charts(df):
 def render_actions():
     """Render admin action buttons."""
     st.subheader("Admin Actions")
+
+    # User moderation section
+    st.markdown("**User Moderation**")
     username = st.text_input("Username to moderate", "", key="moderate_username_input")
     col1, col2 = st.columns(2)
 
@@ -306,6 +334,97 @@ def render_actions():
             except Exception as e:
                 st.error(f"Error: {e}")
 
+    # Toxicity threshold control section
+    st.markdown("---")
+    st.markdown("**Toxicity Gate Control**")
+
+    # Get current threshold
+    try:
+        r = requests.get("http://localhost:8000/api/mod/threshold", timeout=5)
+        current_threshold = r.json()["threshold"] if r.ok else 0.6
+    except Exception:
+        current_threshold = 0.6
+
+    # Threshold slider
+    new_threshold = st.slider(
+        "Toxicity Threshold",
+        min_value=0.0,
+        max_value=1.0,
+        value=current_threshold,
+        step=0.05,
+        format="%.2f",
+        key="toxicity_threshold_slider",
+        help="Messages with toxicity scores above this threshold will be blocked for everyone except the sender",
+    )
+
+    # Update threshold if changed
+    if (
+        abs(new_threshold - current_threshold) > 0.001
+    ):  # Account for floating point precision
+        try:
+            r = requests.patch(
+                "http://localhost:8000/api/mod/threshold",
+                json={"threshold": new_threshold},
+                timeout=5,
+            )
+            if r.ok:
+                st.success(f"Updated toxicity threshold to {new_threshold:.2f}")
+            else:
+                st.error(f"Failed to update threshold: {r.text}")
+        except Exception as e:
+            st.error(f"Error updating threshold: {e}")
+
+    st.info(
+        f"Current threshold: {current_threshold:.2f} - Messages scoring ≥{current_threshold:.2f} will be blocked"
+    )
+
+    # Database management section
+    st.markdown("---")
+    st.markdown("**Database Management**")
+    st.warning("⚠️ The following action will permanently delete all messages and gifts!")
+
+    # Initialize confirmation state
+    if "confirm_reset" not in st.session_state:
+        st.session_state.confirm_reset = False
+
+    # Reset button or confirmation
+    if not st.session_state.confirm_reset:
+        if st.button("🗑️ Reset Database", type="secondary", key="reset_db_button"):
+            st.session_state.confirm_reset = True
+            st.rerun()
+    else:
+        st.error(
+            "⚠️ Are you sure you want to reset the database? This action cannot be undone!"
+        )
+        col_confirm, col_cancel = st.columns(2)
+
+        if col_confirm.button(
+            "✅ Yes, Reset Database", type="primary", key="confirm_reset_button"
+        ):
+            try:
+                # Run async function in event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                success, message = loop.run_until_complete(reset_database())
+                loop.close()
+
+                if success:
+                    st.success(message)
+                    # Clear the data in session state to refresh the display
+                    st.session_state.df = pd.DataFrame()
+                else:
+                    st.error(message)
+
+                st.session_state.confirm_reset = False
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error resetting database: {e}")
+                st.session_state.confirm_reset = False
+
+        if col_cancel.button("❌ Cancel", type="secondary", key="cancel_reset_button"):
+            st.session_state.confirm_reset = False
+            st.rerun()
+
 
 # --- Main App Loop ---
 def main():
@@ -315,7 +434,7 @@ def main():
     # Add auto-refresh control
     col1, col2 = st.columns([3, 1])
     with col2:
-        auto_refresh = st.checkbox(
+        _auto_refresh = st.checkbox(
             "Auto-refresh", value=True, key="auto_refresh_checkbox"
         )
         if st.button("Refresh Now", key="manual_refresh_button"):
@@ -329,11 +448,6 @@ def main():
     render_table(st.session_state.df)
     render_charts(st.session_state.df)
     render_actions()
-
-    # Auto-refresh every 5 seconds if enabled
-    if auto_refresh:
-        time.sleep(5)
-        st.rerun()
 
 
 if __name__ == "__main__":

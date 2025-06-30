@@ -237,3 +237,24 @@ class UserSession(Base):
 
     def __repr__(self) -> str:
         return f"<UserSession(id={self.id}, user_id={self.user_id}, active={self.is_active})>"
+
+
+class Setting(Base):
+    """Application settings model for runtime configuration."""
+
+    __tablename__ = "settings"
+
+    # Primary key
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+
+    # Setting value (stored as text, converted on retrieval)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Metadata
+    created_at: Mapped[datetime] = mapped_column(default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<Setting(key='{self.key}', value='{self.value}')>"
