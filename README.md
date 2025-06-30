@@ -39,7 +39,7 @@
 - ** Cross-Browser Support**: Modern WebRTC implementation with mobile optimization
 - ** Privacy-First Design**: Users control camera permissions with graceful fallback
 - ** TikTok-Style UI**: Seamless video integration with live chat overlay
-- **⚡ Performance Optimized**: Hardware-accelerated video rendering with minimal overhead
+- ** Performance Optimized**: Hardware-accelerated video rendering with minimal overhead
 
 ### ✅ **Critical Bug Fixes**
 - **Fixed Message Limit Issue**: Resolved memory leak causing chat to stop after ~24 messages
@@ -383,7 +383,6 @@ GitHub Actions pipeline runs on every push and PR:
 
 ## 14. Development Roadmap
 
-### ✅ Completed Stages
 - **Stage 1-4**: Core WebSocket chat with moderation
 - **Stage 5**: Gift API and event broadcasting  
 - **Stage 6**: Random gift producer with background tasks
@@ -396,18 +395,17 @@ GitHub Actions pipeline runs on every push and PR:
   - Complete migration from JSON/JSONL to database-only
   - Database-backed authentication and persistence
   - Dashboard integration with real-time database queries
-- **Phase L1**: Local Capture Preview (**Latest**)
+- **Phase 12a**: Local Capture Preview 
   - WebRTC camera integration for all authenticated users
   - Cross-browser webcam streaming with graceful fallback
   - Privacy-first design with user-controlled permissions
   - TikTok-style UI with seamless video-chat integration
   - Critical bug fix: Resolved message limit memory leak
-
-### ✅ Future Stages
-- **Phase L2**: Advanced Streaming Features (WebRTC P2P, recording)
-- **Stage 12**: Advanced Analytics & Reporting
-- **Stage 13**: Real-time Dashboard Updates (WebSocket)
+- **Phase 12b**: Advanced Streaming Features (WebRTC P2P, recording)
+- **Stage 13a**: Advanced Analytics & Reporting
+- **Stage 13b**: Real-time Dashboard Updates (WebSocket)
 - **Stage 14**: Message Search & Advanced Filtering
+
 - **Stage 15**: Production Deployment & Scaling
 
 ---
@@ -530,4 +528,4 @@ MIT — see `LICENSE`.
 
 ---
 
-** Ready for Production** : SafeStream provides a complete, tested, and documented foundation for building real-time moderated chat applications with modern Python best practices, comprehensive authentication, and production-ready monitoring capabilities.
+**Ready for Production** : SafeStream provides a complete, tested, and documented foundation for building real-time moderated chat applications with modern Python best practices, comprehensive authentication, and production-ready monitoring capabilities.
