@@ -1,8 +1,20 @@
 # SafeStream — Enterprise‑Grade AI Moderated Real‑Time Chat and Livestreaming Platform
 
-> **A scalable, production‑ready live‑streaming chat application with enterprise‑grade architecture.** Built with modern async Python, this TikTok‑style platform features real‑time WebSocket broadcasting, AI‑powered content moderation, JWT authentication, database persistence, and comprehensive admin tools. Engineered for high concurrency (\~500 messages/second), horizontal scalability, and production deployment with Docker, CI/CD, and automated testing.
+## 🎥 Platform Demo
 
-**🎯 Perfect showcase of:** *Microservices Architecture • Real‑Time Systems • Machine Learning Integration • Database Design • DevOps Practices • Security Implementation*
+<video width="100%" controls>
+  <source src="../Showcase/ML%20Moderation%20Showcase.mov" type="video/quicktime">
+  <source src="../Showcase/ML%20Moderation%20Showcase.mov" type="video/mp4">
+  Your browser does not support the video tag. [Download the demo video](../Showcase/ML%20Moderation%20Showcase.mov)
+</video>
+
+*Live demonstration of SafeStream's AI-powered content moderation in action*
+
+---
+
+> **A scalable, production‑ready live‑streaming chat application with enterprise‑grade architecture.** Built with modern async Python, this TikTok‑style platform features real‑time WebSocket broadcasting, AI‑powered content moderation, JWT authentication, database persistence, webcam integration, and comprehensive admin tools. Engineered for high concurrency (\~500 messages/second), horizontal scalability, and production deployment with Docker, CI/CD, and automated testing.
+
+**🎯 Perfect showcase of:** *Microservices Architecture • Real‑Time Systems • Machine Learning Integration • Database Design • DevOps Practices • Security Implementation • WebRTC Integration*
 
 ---
 
@@ -13,14 +25,36 @@
 | **Real‑Time** | **Async WebSocket** infrastructure with FastAPI + Uvicorn • Multi‑client broadcasting • Connection pooling & lifecycle management |
 | **Security** | **Enterprise JWT** authentication • bcrypt password hashing • Session management • Protected API endpoints |
 | **AI/ML** | **Detoxify ML** content moderation • Pluggable text‑classification interface • Real‑time toxicity scoring |
-| **Frontend** | **Multi‑stack UI**: Production HTML/JS client + **Streamlit admin dashboard** • Real‑time data visualization |
+| **Frontend** | **Multi‑stack UI**: Production HTML/JS client + **Streamlit admin dashboard** • Real‑time data visualization • **WebRTC Camera Integration** |
 | **Event System** | **Microservice architecture** • Event‑driven gift producer • RESTful API integration • Background task orchestration |
 | **Database** | **SQLAlchemy 2.0** with async patterns • ACID transactions • Migration system • Production‑ready persistence |
 | **DevOps** | **Full CI/CD pipeline** • Docker containerization • Automated testing • Load testing with Locust • GitHub Actions |
 
 ---
 
-## 2. Why This Stack? (Critique & Justification)
+## 2. Recent Updates & Features
+
+### ✅ **Phase L1 - Local Capture Preview** (Latest Release)
+- ** WebRTC Camera Integration**: Real-time webcam streaming for all authenticated users
+- ** Cross-Browser Support**: Modern WebRTC implementation with mobile optimization
+- ** Privacy-First Design**: Users control camera permissions with graceful fallback
+- ** TikTok-Style UI**: Seamless video integration with live chat overlay
+- **⚡ Performance Optimized**: Hardware-accelerated video rendering with minimal overhead
+
+### ✅ **Critical Bug Fixes**
+- **Fixed Message Limit Issue**: Resolved memory leak causing chat to stop after ~24 messages
+- **Enhanced Message Tracking**: Improved message deduplication system for better performance
+- **Memory Management**: Added safeguards to prevent browser memory issues in long sessions
+
+### ✅ **Latest Platform Capabilities**
+- **Unlimited Chat Flow**: No artificial message limits, supports continuous high-volume chat
+- **WebRTC Streaming**: Live camera integration with real-time video streaming
+- **Enterprise Database**: Complete SQLAlchemy 2.0 implementation with ACID compliance
+- **Production Monitoring**: Real-time analytics dashboard with comprehensive admin controls
+
+---
+
+## 3. Why This Stack? (Critique & Justification)
 
 | Decision                | Pros                                                 | Cons                                             | Alternatives                                            |
 | ----------------------- | ---------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------- |
@@ -35,7 +69,7 @@
 
 *The choices above aim for maximum ****enterprise scalability**** while staying close to production reality: distributed microservices architecture with real‑time ML inference, enterprise‑grade security, and battle‑tested database patterns.*
 
-### 🚀 **Key Technical Achievements** 
+### ✅ **Key Technical Achievements** 
 - **High‑Concurrency Design**: Handles 500+ messages/second with async architecture
 - **Production‑Ready Database**: SQLAlchemy 2.0 with ACID transactions, migrations, and connection pooling  
 - **Enterprise Security**: JWT authentication, session management, bcrypt hashing, OWASP compliance
@@ -45,7 +79,7 @@
 
 ---
 
-## 3. Architecture
+## 4. Architecture
 
 ```mermaid
 flowchart TD
@@ -80,7 +114,7 @@ flowchart TD
 
 ---
 
-## 4. Quick‑Start
+## 5. Quick‑Start
 
 ### Local (venv)
 
@@ -104,7 +138,7 @@ docker compose up --build
 
 ---
 
-## 5. Authentication System
+## 6. Authentication System
 
 SafeStream includes a complete JWT authentication system with secure user management:
 
@@ -147,7 +181,7 @@ The system includes pre-configured demo accounts for testing:
 
 ---
 
-## 6. Moderator Dashboard
+## 7. Moderator Dashboard
 
 SafeStream includes a comprehensive moderator dashboard built with Streamlit for real-time monitoring, moderation, and analytics.
 
@@ -182,7 +216,7 @@ All admin endpoints require JWT authentication via `Authorization: Bearer <token
 
 ---
 
-## 7. Configuration
+## 8. Configuration
 
 | Variable              | Default | Purpose                          |
 | --------------------- | ------- | -------------------------------- |
@@ -201,7 +235,7 @@ All admin endpoints require JWT authentication via `Authorization: Bearer <token
 
 ---
 
-## 8. API / Protocol
+## 9. API / Protocol
 
 ### Authentication Endpoints
 
@@ -268,7 +302,7 @@ GET /metrics
 
 ---
 
-## 9. Machine‑Learning Moderation
+## 10. Machine‑Learning Moderation
 
 *Detoxify is loaded once at startup; predictions run on CPU in <10 ms for typical messages.* `moderation.py` exposes a single async `predict(text)` coroutine so any Hugging Face model can be swapped by changing an env var.
 
@@ -282,7 +316,7 @@ GET /metrics
 
 ---
 
-## 10. Database & Persistence
+## 11. Database & Persistence
 
 ### Current Implementation
 - **SQLAlchemy Database**: All messages, users, gifts, and admin actions stored in database
@@ -303,7 +337,7 @@ GET /metrics
 
 ---
 
-## 11. Testing & Load
+## 12. Testing & Load
 
 ```bash
 # Run full test suite (102 tests including JWT auth)
@@ -329,7 +363,7 @@ The default Locust script ramps to 200 users/500 msg·s⁻¹; adjust via environ
 
 ---
 
-## 12. CI / CD
+## 13. CI / CD
 
 GitHub Actions pipeline runs on every push and PR:
 
@@ -347,7 +381,7 @@ GitHub Actions pipeline runs on every push and PR:
 
 ---
 
-## 13. Development Roadmap
+## 14. Development Roadmap
 
 ### ✅ Completed Stages
 - **Stage 1-4**: Core WebSocket chat with moderation
@@ -362,8 +396,15 @@ GitHub Actions pipeline runs on every push and PR:
   - Complete migration from JSON/JSONL to database-only
   - Database-backed authentication and persistence
   - Dashboard integration with real-time database queries
+- **Phase L1**: Local Capture Preview (**Latest**)
+  - WebRTC camera integration for all authenticated users
+  - Cross-browser webcam streaming with graceful fallback
+  - Privacy-first design with user-controlled permissions
+  - TikTok-style UI with seamless video-chat integration
+  - Critical bug fix: Resolved message limit memory leak
 
 ### 🔮 Future Stages
+- **Phase L2**: Advanced Streaming Features (WebRTC P2P, recording)
 - **Stage 12**: Advanced Analytics & Reporting
 - **Stage 13**: Real-time Dashboard Updates (WebSocket)
 - **Stage 14**: Message Search & Advanced Filtering
@@ -473,4 +514,4 @@ MIT — see `LICENSE`.
 
 ---
 
-**🚀 Ready for Production**: SafeStream provides a complete, tested, and documented foundation for building real-time moderated chat applications with modern Python best practices, comprehensive authentication, and production-ready monitoring capabilities.
+** Ready for Production**: SafeStream provides a complete, tested, and documented foundation for building real-time moderated chat applications with modern Python best practices, comprehensive authentication, and production-ready monitoring capabilities.
