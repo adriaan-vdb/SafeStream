@@ -204,6 +204,71 @@ def create_app(testing: bool = False) -> FastAPI:
         """
         return metrics.get_metrics(connected)
 
+    @app.get("/api/recent")
+    async def get_recent_data():
+        """Get recent messages and gifts for dashboard display.
+
+        Returns combined recent messages and gift events with user information.
+        Used by dashboard for real-time moderation monitoring.
+
+        Returns:
+            List of recent messages and gifts with timestamps, user info, and scores
+        """
+        async with async_session() as session:
+            recent_data = []
+
+            # Get recent messages (last 100)
+            messages = await db_service.get_recent_messages(session, limit=100)
+            for message in messages:
+                # Get user info for the message
+                user = await db_service.get_user_by_id(session, message.user_id)
+                if user:
+                    recent_data.append(
+                        {
+                            "ts": message.timestamp.isoformat(),
+                            "user": user.username,
+                            "msg": message.message_text,
+                            "toxic": message.toxicity_flag,
+                            "score": message.toxicity_score or 0.0,
+                            "gift": None,
+                            "amount": None,
+                            "type": "message",
+                        }
+                    )
+
+            # Get recent gift events (last 50)
+            from sqlalchemy import desc, select
+
+            from app.db.models import GiftEvent
+
+            stmt = select(GiftEvent).order_by(desc(GiftEvent.timestamp)).limit(50)
+            result = await session.execute(stmt)
+            gifts = result.scalars().all()
+
+            for gift in gifts:
+                # Get user info for the gift
+                user = await db_service.get_user_by_id(session, gift.from_user_id)
+                if user:
+                    recent_data.append(
+                        {
+                            "ts": gift.timestamp.isoformat(),
+                            "user": user.username,
+                            "msg": None,
+                            "toxic": None,
+                            "score": None,
+                            "gift": gift.gift_id,
+                            "amount": gift.amount,
+                            "type": "gift",
+                        }
+                    )
+
+            # Sort all data by timestamp (newest first)
+            recent_data.sort(key=lambda x: x["ts"], reverse=True)
+
+            return {
+                "recent_data": recent_data[:150]
+            }  # Return top 150 most recent items
+
     # Authentication endpoints
     @app.post("/auth/register", response_model=schemas.AuthResponse)
     async def register(user_data: schemas.UserRegister):

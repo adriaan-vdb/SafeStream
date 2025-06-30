@@ -229,18 +229,66 @@ def render_auth_status():
 
 
 def fetch_metrics_poll():
-    """Fetch metrics from API."""
+    """Fetch metrics and recent messages from API for real-time dashboard."""
     try:
-        r = requests.get(METRICS_URL, timeout=1)
-        if r.ok:
-            m = r.json()
+        # Get aggregate metrics
+        metrics_response = requests.get(METRICS_URL, timeout=2)
+        recent_response = requests.get("http://localhost:8000/api/recent", timeout=2)
+
+        if metrics_response.ok and recent_response.ok:
+            metrics = metrics_response.json()
+            recent_data = recent_response.json().get("recent_data", [])
+
+            # Convert recent data to DataFrame format
+            rows = []
+            for item in recent_data:
+                rows.append(
+                    {
+                        "ts": item["ts"],
+                        "user": item["user"],
+                        "msg": item["msg"],
+                        "toxic": item["toxic"],
+                        "score": item["score"],
+                        "gift": item["gift"],
+                        "amount": item["amount"],
+                        "viewer_count": metrics.get("viewer_count", 0),
+                        "gift_count": metrics.get("gift_count", 0),
+                        "toxic_pct": metrics.get("toxic_pct", 0.0),
+                    }
+                )
+
+            if rows:
+                return pd.DataFrame(rows)
+            else:
+                # Fallback: return just metrics if no recent data
+                now = datetime.now().isoformat()
+                return pd.DataFrame(
+                    [
+                        {
+                            "ts": now,
+                            "user": "-",
+                            "msg": "No recent activity",
+                            "toxic": None,
+                            "score": None,
+                            "gift": None,
+                            "amount": None,
+                            "viewer_count": metrics.get("viewer_count", 0),
+                            "gift_count": metrics.get("gift_count", 0),
+                            "toxic_pct": metrics.get("toxic_pct", 0.0),
+                        }
+                    ]
+                )
+
+        elif metrics_response.ok:
+            # Fallback: just metrics if recent API fails
+            m = metrics_response.json()
             now = datetime.now().isoformat()
             return pd.DataFrame(
                 [
                     {
                         "ts": now,
                         "user": "-",
-                        "msg": None,
+                        "msg": "Recent messages unavailable",
                         "toxic": None,
                         "score": None,
                         "gift": None,
@@ -251,8 +299,10 @@ def fetch_metrics_poll():
                     }
                 ]
             )
-    except Exception:
-        pass
+
+    except Exception as e:
+        print(f"Error fetching metrics poll data: {e}")
+
     return pd.DataFrame()
 
 

@@ -28,14 +28,54 @@ streamlit run dashboard/app.py
 ```
 - **Dashboard UI:** http://localhost:8501
 
-## 3. Sending Gifts (API)
+## 3. Admin Account Management
+
+### Create Admin Account
+```bash
+python create_admin_user.py
+```
+### Dummy Account:
+username: admin
+email: admin
+password: admin
+
+### View All Admin Users
+```bash
+python3 list_users.py
+```
+- Shows all registered users who can access the admin dashboard
+- Displays user details, status, and recent admin activity
+- Any authenticated user has admin capabilities
+
+### Delete Admin Users
+```bash
+python3 delete_user.py                    # Interactive mode
+python3 delete_user.py <username>         # Delete specific user
+python3 delete_user.py --delete-all       # Delete all users (dangerous)
+```
+- Safe deletion with confirmation prompts
+- Shows related data that will be deleted (messages, gifts, admin actions)
+- Permanently removes user and all associated data
+
+### Dashboard Authentication
+- Use created admin credentials to login to the dashboard
+- JWT tokens expire after 30 minutes (configurable)
+- Logout available in dashboard sidebar
+
+### Admin Actions Available
+- **Kick users**: Permanently remove users and close their connections
+- **Mute users**: Temporarily silence users (5 minutes)
+- **Control toxicity threshold**: Adjust message filtering (0.0-1.0)
+- **Reset metrics**: Clear system statistics
+
+## 4. Sending Gifts (API)
 **Manual gift trigger:**
 ```bash
 curl -X POST http://localhost:8000/api/gift -H "Content-Type: application/json" \
   -d '{"from":"admin","gift_id":999,"amount":1}'
 ```
 
-## 4. Resetting Metrics and Logs
+## 5. Resetting Metrics and Logs
 - **Reset metrics:**  
   ```bash
   curl -X POST http://localhost:8000/api/admin/reset_metrics
@@ -45,7 +85,7 @@ curl -X POST http://localhost:8000/api/gift -H "Content-Type: application/json" 
   rm logs/*.jsonl
   ```
 
-## 5. Running Tests and Verification
+## 6. Running Tests and Verification
 **Run all verification scripts:**
 ```bash
 ./DevelopmentVerification/all_verifications.sh
@@ -55,14 +95,14 @@ curl -X POST http://localhost:8000/api/gift -H "Content-Type: application/json" 
 pytest
 ```
 
-## 6. Docker (Optional)
+## 7. Docker (Optional)
 **Build and run with Docker Compose:**
 ```bash
 docker compose up --build
 ```
 - This will start both the API and dashboard in containers.
 
-## 7. Development Tips
+## 8. Development Tips
 - **Install dependencies:**  
   ```bash
   pip install -e ".[dev]"
