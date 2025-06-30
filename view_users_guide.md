@@ -13,7 +13,7 @@ python3 list_users.py
 - Username, email, user ID
 - Account status (active/inactive) 
 - Creation and last update timestamps
-- Recent admin actions performed by each user
+- Recent admin actions performed by each user 
 
 ## Method 2: Direct Database Query
 

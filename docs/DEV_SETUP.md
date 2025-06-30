@@ -14,10 +14,10 @@ This guide provides detailed instructions for setting up the SafeStream developm
 
 ```bash
 git clone <repository-url>
-cd SafeStream
+cd SafeStream 
 ```
 
-### 2. Create Virtual Environment
+### 2. Create Virtual Environment 
 
 ```bash
 python3 -m venv .venv

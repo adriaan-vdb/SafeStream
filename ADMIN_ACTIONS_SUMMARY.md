@@ -22,7 +22,7 @@ Successfully implemented robust kick and mute admin functionality for SafeStream
 
 ## 🔧 Technical Implementation
 
-### Database Layer (`app/services/database.py`)
+### Database Layer (`app/services/database.py`) 
 ```python
 # New functions added:
 async def delete_user(session, user_id) -> bool
