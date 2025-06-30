@@ -18,7 +18,7 @@ This hands-on build was created to understand and solve the complex systems chal
 
 ---
 
-> **A scalable, production‑ready live‑streaming chat application with enterprise‑grade architecture.** Built with modern async Python, this TikTok‑style platform features real‑time WebSocket broadcasting, AI‑powered content moderation, JWT authentication, database persistence, webcam integration, and comprehensive admin tools. Engineered for high concurrency (\~500 messages/second), horizontal scalability, and production deployment with Docker, CI/CD, and automated testing.
+> **A scalable, production‑ready live‑streaming chat application with enterprise‑grade architecture.** Built with modern async Python, this platform features real‑time WebSocket broadcasting, AI‑powered content moderation, JWT authentication, database persistence, webcam integration, and comprehensive admin tools. Engineered for high concurrency (\~500 messages/second), horizontal scalability, and production deployment with Docker, CI/CD, and automated testing.
 
 **Showcase Of:** 
 *Microservices Architecture • Real‑Time Systems • Machine Learning Integration • Database Design • DevOps Practices • Security Implementation • WebRTC Integration*
